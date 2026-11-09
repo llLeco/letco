@@ -4,6 +4,17 @@
 
 A Mac app for a personal planning system: every plan is Markdown inside `~/planos`, with git history, a daily list, and a button that opens Claude or Codex with the right context.
 
+![Today: tasks picked by the investigator, deadlines and open items across plans](docs/screenshots/today.png)
+
+| | |
+|---|---|
+| ![A plan with its "For you" summary, next actions and details](docs/screenshots/plan.png) | ![Routines: the Claude scheduled tasks that keep plans up to date](docs/screenshots/routines.png) |
+| **Plan**: what it's about, where it stands and what needs you | **Routines**: Claude scheduled tasks, with today's timeline |
+| ![Daily summary with the day's numbers compared to previous days](docs/screenshots/summaries.png) | ![First-run setup: language, name and what your Mac has](docs/screenshots/setup.png) |
+| **Summaries**: what got done each day, written at 7 PM | **Setup**: from zero in five steps |
+
+_Screenshots use the built-in sample data (invented projects and people)._
+
 ## Install
 
 Letco is macOS-only for now. You build the app on your own Mac, so macOS opens it without asking you to allow it. It works on Apple Silicon and Intel Macs, and the first build takes about 15 minutes.

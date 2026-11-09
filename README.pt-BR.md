@@ -4,6 +4,17 @@
 
 App de Mac para o sistema próprio de planejamentos: todos os planos em Markdown dentro de `~/planos`, com histórico no git, uma lista do dia e um botão para abrir Claude ou Codex com o contexto certo.
 
+![Hoje: tarefas escolhidas pelo investigador, prazos e pendências dos planos](docs/screenshots/today.png)
+
+| | |
+|---|---|
+| ![Um plano com o resumo "Para você", as próximas ações e os detalhes](docs/screenshots/plan.png) | ![Rotinas: as tarefas agendadas do Claude que mantêm os planos em dia](docs/screenshots/routines.png) |
+| **Plano**: do que se trata, como está e o que depende de você | **Rotinas**: tarefas agendadas do Claude, com a linha do tempo do dia |
+| ![Resumo do dia com os números comparados aos dias anteriores](docs/screenshots/summaries.png) | ![Primeira vez: idioma, nome e o que o seu Mac tem](docs/screenshots/setup.png) |
+| **Resumos**: o que foi feito em cada dia, escrito às 19h | **Configuração**: do zero em cinco passos |
+
+_As imagens usam os dados de exemplo do app (projetos e pessoas inventados) e estão em inglês._
+
 ## Instalar
 
 O app é compilado na sua máquina: assim o macOS abre sem pedir liberação. Precisa de um Mac com Apple Silicon ou Intel e de uns 15 minutos na primeira vez.
