@@ -130,7 +130,7 @@ export async function mockApi(cmd: string, args: Record<string, unknown> = {}): 
   await new Promise((r) => setTimeout(r, 10))
   switch (cmd) {
     case 'environment':
-      return { root: '~/planos', home: '~', hasOrca: true, hasClaudeApp: true, hasClaude: true, hasCodex: true, hasHermes: false, hasGit: true, hasNode: true, hasGh: true, skillInstalled: false, cliInstalled: false }
+      return { root: '~/planos', home: '~', hasOrca: true, hasClaudeApp: true, hasClaude: true, hasCodex: true, hasGit: true, hasNode: true, hasGh: true, skillInstalled: false, cliInstalled: false }
     case 'load_workspace': {
       const plans = [...files.keys()]
         .filter((k) => /^projetos\/[^/]+\/planos\/[^/]+\/plano\.md$/.test(k))
@@ -193,8 +193,6 @@ export async function mockApi(cmd: string, args: Record<string, unknown> = {}): 
       return
     case 'git_commit':
       return true
-    case 'read_hermes':
-      return { planosJson: null, copies: [], analyses: [] }
     case 'launch_agent':
       return args.opener === 'claude-app' && args.agent === 'codex' ? 'orca' : (args.opener ?? 'terminal')
     case 'install_skill':

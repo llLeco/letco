@@ -89,7 +89,7 @@ git pull && pnpm install && pnpm release && cp -R src-tauri/target/release/bundl
 - **Projeto**: planos agrupados por status, "Nova sessão" com Claude ou Codex, "Novo plano".
 - **Plano**: status, prioridade, prazo, pessoas, worktree; fases com checklist (marca a data, escreve no Log, muda status sozinho: primeira fase → andamento, todas → revisão); decisões e cobranças clicáveis; editor do Markdown (⌘E); arquivar (nunca apaga).
 - **Conversar**: abre Claude Code ou Codex no worktree do plano pelo Orca (`orca agent launch`) ou no Terminal, com prompt pronto (caminho do plano, fases feitas e pendentes, próxima fase, skill `planejamento`).
-- **Importa** de `~/planos/entrada/` (planos feitos no Claude da web) e, se existir, de `~/.hermes/planos`. Para juntar planos soltos no Mac, use "Juntar meus planos" (o Claude procura e pergunta antes de copiar).
+- **Importa** de `~/planos/entrada/` (planos feitos no Claude da web). Para juntar planos soltos no Mac, use "Juntar meus planos" (o Claude procura e pergunta antes de copiar).
 - **Skill planejamento**: instala em `~/.claude/skills/planejamento` e no `~/.codex/AGENTS.md` (Ajustes).
 - Atualiza sozinho quando um agente mexe nos arquivos (observa a pasta). Cada mudança vira commit; se houver remoto, envia.
 
@@ -116,7 +116,7 @@ pnpm check            # tipos, lint e testes (o que o CI roda em cada PR)
 src/lib/plan.ts      leitura e escrita do plano.md (cabeçalho, fases, decisões, cobranças, log)
 src/lib/score.ts     pontuação e lista do dia
 src/lib/config.ts    projetos.yaml, contextos e ordem
-src/lib/migrate.ts   importação do Hermes e de entrada/
+src/lib/migrate.ts   importação de entrada/
 src/lib/prompt.ts    pedidos à IA (Conversar, investigador, juntar planos, console)
 src/lib/rotinas.ts   as rotinas do Letco (texto que `planos rotina <id>` imprime)
 src/lib/usuario.ts   quem usa o app (`usuario` no projetos.yaml), para os pedidos à IA

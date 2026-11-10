@@ -8,7 +8,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import type { ContextKey, Plan, Prioridade, Status, WorkspaceRaw } from '../src/lib/types'
 import { PRIORIDADES, STATUSES } from '../src/lib/types'
-import { buildProjects, configToYaml, CONTEXT_LABEL, DEFAULT_CONFIG, detectContext, orderedSlugs, titleCase, parseConfig, configError } from '../src/lib/config'
+import { buildProjects, configToYaml, CONTEXT_LABEL, DEFAULT_CONFIG, detectContext, orderedSlugs, parseConfig, configError } from '../src/lib/config'
 import { addPhase, ASK_LABEL, splitFrontmatter, newPlanMarkdown, nextPhase, normalize, parsePlan, pendingAsks, phaseLabel, progress, setFields, slugify, togglePhase } from '../src/lib/plan'
 import { buildToday, isOpen } from '../src/lib/score'
 import { daysUntil, dueLabel, todayISO } from '../src/lib/dates'
@@ -19,7 +19,7 @@ import { rotina, ROTINAS } from '../src/lib/rotinas'
 import { DISCORD_FILE, KEYCHAIN_SERVICE, parseCanais } from '../src/lib/discord'
 import { hojeMarkdown, semanaMarkdown } from '../src/lib/digest'
 import { parseTarefas } from '../src/lib/tarefas'
-import { migrateHermes, placeEntrada } from '../src/lib/migrate'
+import { placeEntrada } from '../src/lib/migrate'
 import { CAMPANHAS_FILE, DIVULGAR_STATE_DIR, gerarPostPrompt, parseCampanhas, prMarkdown, ruido, type Campanha, type PrInfo } from '../src/lib/divulgar'
 import { METRICAS, parseResumo, RESUMOS_DIR, resumoPrompt, type Metricas } from '../src/lib/resumo'
 import { addDays, format } from 'date-fns'
@@ -512,27 +512,10 @@ function cmdIniciar() {
   const cfg = structuredClone(DEFAULT_CONFIG)
   const quem = flag('nome')
   if (quem) cfg.usuario = { nome: quem }
-  let n = 0
-  if (flag('hermes')) {
-    const H = join(HOME, '.hermes/planos')
-    const json = readOpt(join(H, 'planos.json'))
-    if (!json) die(t('Não encontrei ~/.hermes/planos/planos.json', "Couldn't find ~/.hermes/planos/planos.json"))
-    const md = (dir: string) =>
-      existsSync(dir) ? readdirSync(dir).filter((x) => x.endsWith('.md')).map((x) => [x, readFileSync(join(dir, x), 'utf8')] as [string, string]) : []
-    const { files, projects } = migrateHermes(json, md(join(H, 'claude')), new Set(), md(join(H, 'analises')))
-    for (const f of files) {
-      write(f.rel, f.content)
-      if (f.rel.endsWith('/plano.md')) n++
-    }
-    for (const p of projects) {
-      cfg.projetos[p] ??= { nome: titleCase(p) }
-      for (const k of Object.keys(cfg.contextos) as ContextKey[]) if (!cfg.contextos[k].ordem.includes(p)) cfg.contextos[k].ordem.push(p)
-    }
-  }
   writeFileSync(join(ROOT, 'projetos.yaml'), configToYaml(cfg))
   if (!existsSync(join(ROOT, '.git'))) git('init', '-q')
-  commit(n ? 'Importação inicial do Hermes' : 'Início do ~/planos')
-  console.log(green('✓ ') + t(`${ROOT} criado${n ? ` com ${n} planos do Hermes` : ''}.`, `${ROOT} created${n ? ` with ${n} plans from Hermes` : ''}.`))
+  commit('Início do ~/planos')
+  console.log(green('✓ ') + t(`${ROOT} criado.`, `${ROOT} created.`))
 }
 
 /** Rotinas de dias úteis no launchd: lista do dia às 8h30, 12h30 e 16h30; resumo da semana sexta 17h. */
@@ -1032,7 +1015,7 @@ function help() {
     L(`${bold('planos editar')} <id>                 `, 'abre o plano.md no $EDITOR', 'opens plano.md in $EDITOR'),
     L(`${bold('planos arquivar')} <id>               `, 'apagar = arquivar (desarquivar desfaz)', 'delete = archive (desarquivar undoes it)'),
     L(`${bold('planos importar')}                    `, 'traz os arquivos de entrada/', 'brings in the files from entrada/'),
-    L(`${bold('planos iniciar')} [--nome X] [--hermes] `, `cria ${ROOT} (e importa do Hermes)`, `creates ${ROOT} (and imports from Hermes)`),
+    L(`${bold('planos iniciar')} [--nome X]          `, `cria ${ROOT}`, `creates ${ROOT}`),
     L(`${bold('planos agendar')} [--remover]         `, 'rotinas de dias úteis que gravam hoje.md e semana.md', 'weekday routines that write hoje.md and semana.md'),
     L(`${bold('planos discord --ler')} [--canal id]  `, 'lê as mensagens novas dos canais (token no Keychain) e imprime o pedido de extração', 'reads new channel messages (token in the Keychain) and prints the extraction request'),
     L(`${bold('planos divulgar --verificar')}        `, 'confere a branch de cada campanha (campanhas.yaml) e imprime o pedido de cada post a montar', 'checks the branch of each campaign (campanhas.yaml) and prints the request for each post to build'),

@@ -68,7 +68,6 @@ export function SettingsView() {
   const config = useStore((s) => s.config)
   const prefs = useStore((s) => s.prefs)
   const setPrefs = useStore((s) => s.setPrefs)
-  const importHermes = useStore((s) => s.importHermes)
   const plans = useStore((s) => s.plans)
   const setOnboarding = useStore((s) => s.setOnboarding)
   const juntarPlanos = useStore((s) => s.juntarPlanos)
@@ -246,19 +245,6 @@ export function SettingsView() {
       </div>
 
       <DiscordSettings />
-
-      {env?.hasHermes && (
-        <>
-          <h2 className="mb-2 mt-8 px-1 text-[12.5px] font-semibold text-[var(--text-2)]">{t('Migração', 'Migration')}</h2>
-          <div className="rounded-[12px] border border-[var(--border)] px-4">
-            <Row icon={<Download size={16} />} title={t('Importar do Hermes', 'Import from Hermes')} desc={t('Traz os planos de ~/.hermes/planos que ainda não estão aqui. Não altera a origem.', "Brings in plans from ~/.hermes/planos that aren't here yet. Doesn't change the source.")}>
-              <Button size="sm" onClick={() => importHermes()}>
-                {t('Importar', 'Import')}
-              </Button>
-            </Row>
-          </div>
-        </>
-      )}
 
       <p className="mt-8 px-1 text-[12px] text-[var(--text-3)]">
         {t(

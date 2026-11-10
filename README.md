@@ -91,7 +91,7 @@ git pull && pnpm install && pnpm release && cp -R src-tauri/target/release/bundl
 - **Project**: plans grouped by status, "New session" with Claude or Codex, "New plan".
 - **Plan**: status, priority, due date, people, worktree; phases as a checklist (stamps the date, writes to the Log, updates the status on its own: first phase → in progress, all → in review); clickable decisions and follow-ups; Markdown editor (⌘E); archive (never deletes).
 - **Chat**: opens Claude Code or Codex in the plan's worktree through Orca (`orca agent launch`) or Terminal, with a ready prompt (plan path, done and pending phases, next phase, `planejamento` skill).
-- **Imports** from `~/planos/entrada/` (plans made in Claude on the web) and, if present, from `~/.hermes/planos`. To gather loose plans on your Mac, use "Gather my plans" (Claude searches and asks before copying).
+- **Imports** from `~/planos/entrada/` (plans made in Claude on the web). To gather loose plans on your Mac, use "Gather my plans" (Claude searches and asks before copying).
 - **planejamento skill**: installs into `~/.claude/skills/planejamento` and `~/.codex/AGENTS.md` (Settings).
 - Refreshes on its own when an agent edits the files (it watches the folder). Every change becomes a commit; if there's a remote, it pushes.
 - **Two languages**: screens, the `planos` command and AI replies follow `usuario.idioma` in `projetos.yaml` (English or Portuguese).
@@ -119,7 +119,7 @@ pnpm check            # types, lint and tests (what CI runs on every PR)
 src/lib/plan.ts      reads and writes plano.md (header, phases, decisions, follow-ups, log)
 src/lib/score.ts     scoring and the daily list
 src/lib/config.ts    projetos.yaml, contexts and order
-src/lib/migrate.ts   import from Hermes and entrada/
+src/lib/migrate.ts   import from entrada/
 src/lib/prompt.ts    requests to the AI (Chat, investigator, gather plans, console)
 src/lib/rotinas.ts   the Letco routines (the text `planos rotina <id>` prints)
 src/lib/usuario.ts   who uses the app (`usuario` in projetos.yaml), for the AI requests

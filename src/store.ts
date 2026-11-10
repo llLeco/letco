@@ -5,11 +5,11 @@ import { api } from './lib/api'
 import type { Agente, Ask, Config, ContextKey, Env, Idioma, Opener, Plan, Prioridade, ProjectInfo, Usuario, View, WorkspaceRaw } from './lib/types'
 import { setUsuario } from './lib/usuario'
 import { idiomaDoSistema, setLang, t } from './lib/i18n'
-import { buildProjects, configToYaml, detectContext, DEFAULT_CONFIG, orderedSlugs, titleCase, parseConfig, configError } from './lib/config'
+import { buildProjects, configToYaml, detectContext, DEFAULT_CONFIG, orderedSlugs, parseConfig, configError } from './lib/config'
 import { newPlanMarkdown, parsePlan, slugify, toggleLine } from './lib/plan'
 import { matchingAsk, setTarefa, type Tarefa } from './lib/tarefas'
 import { todayISO } from './lib/dates'
-import { migrateHermes, placeEntrada } from './lib/migrate'
+import { placeEntrada } from './lib/migrate'
 import { buildRepoIndex, linkPRs, mostCited, pickCodeDir, prContext, type LocalRepo, type RepoIndex } from './lib/prs'
 import { askPrompt, chatPrompt, conferirPrompt, discordPrompt, juntarPlanosPrompt, planPrompt, projectPrompt } from './lib/prompt'
 import { rotinasAtualizarPrompt, rotinasInstalarPrompt } from './lib/rotinas'
@@ -80,13 +80,12 @@ interface State {
   lang: Idioma
   setLangUI: (l: Idioma) => void
   /** cria (ou completa) ~/planos com o perfil, os projetos e o horário de trabalho do onboarding */
-  setupWorkspace: (o: { nome: string; apelidos: string[]; idioma: Idioma; projetos: string[]; trabalho: { dias: number[]; inicio: string; fim: string }; importHermes: boolean }) => Promise<void>
+  setupWorkspace: (o: { nome: string; apelidos: string[]; idioma: Idioma; projetos: string[]; trabalho: { dias: number[]; inicio: string; fim: string } }) => Promise<void>
   saveUsuario: (u: Usuario) => Promise<void>
   /** abre no app do Claude o pedido para juntar os planos que a pessoa já tem espalhados no Mac */
   juntarPlanos: () => Promise<void>
   /** abre no app do Claude o pedido para criar as rotinas do Letco como tarefas agendadas */
   instalarRotinas: (ids: string[], atualizar?: boolean) => Promise<void>
-  importHermes: () => Promise<number>
   importEntrada: () => Promise<void>
   talk: (plan: Plan, agent?: Agente, opener?: Opener) => Promise<void>
   talkProject: (slug: string, agent: Agente, opener?: Opener) => Promise<void>
@@ -453,7 +452,7 @@ export const useStore = create<State>((set, get) => ({
     set({ lang: l })
   },
 
-  async setupWorkspace({ nome, apelidos, idioma, projetos, trabalho, importHermes }) {
+  async setupWorkspace({ nome, apelidos, idioma, projetos, trabalho }) {
     const exists = !!get().ws?.exists
     const cfg = structuredClone(exists ? get().config : DEFAULT_CONFIG)
     cfg.usuario = { nome: nome.trim(), ...(apelidos.length ? { apelidos } : {}), ...(idioma === 'en' ? { idioma } : {}) }
@@ -471,8 +470,7 @@ export const useStore = create<State>((set, get) => ({
     for (const p of novos) {
       await api.writeText(`projetos/${p.slug}/projeto.md`, `---\nnome: ${p.nome}\n---\n\n# ${p.nome}\n\nContexto do projeto: repositórios, worktrees, pessoas.\n`)
     }
-    if (importHermes) await get().importHermes()
-    await api.gitCommit(exists ? 'onboarding: perfil e projetos' : importHermes ? 'Importação inicial do Hermes' : 'Início do ~/planos')
+    await api.gitCommit(exists ? 'onboarding: perfil e projetos' : 'Início do ~/planos')
     await get().load()
   },
 
@@ -519,45 +517,6 @@ export const useStore = create<State>((set, get) => ({
     } catch (e) {
       toast.error(t('Não consegui abrir o Claude', "Couldn't open Claude"), { description: String(e) })
     }
-  },
-
-  async importHermes() {
-    const data = await api.readHermes()
-    if (!data.planosJson) {
-      toast.error(t('Não encontrei ~/.hermes/planos/planos.json', "Couldn't find ~/.hermes/planos/planos.json"))
-      return 0
-    }
-    const existing = new Set(get().plans.map((p) => p.fm.id))
-    const { files, projects, skipped } = migrateHermes(data.planosJson, data.copies, existing, data.analyses)
-    const existingProjects = new Set(get().ws?.projects.filter((p) => p.content).map((p) => p.slug) ?? [])
-    let n = 0
-    for (const f of files) {
-      if (f.rel.endsWith('/projeto.md') && existingProjects.has(f.rel.split('/')[1])) continue
-      await api.writeText(f.rel, f.content)
-      if (f.rel.endsWith('/plano.md')) n++
-    }
-    // garante que projetos novos (ex.: seteamigos) entrem no projetos.yaml
-    const cfg = parseConfig((await api.loadWorkspace()).projetosYaml)
-    let changed = false
-    for (const p of projects) {
-      if (!cfg.projetos[p]) {
-        cfg.projetos[p] = { nome: titleCase(p) }
-        changed = true
-      }
-      for (const k of Object.keys(cfg.contextos) as ContextKey[]) {
-        if (!cfg.contextos[k].ordem.includes(p)) {
-          cfg.contextos[k].ordem.push(p)
-          changed = true
-        }
-      }
-    }
-    if (changed) await api.writeText('projetos.yaml', configToYaml(cfg))
-    scheduleCommit(`importados ${n} planos do Hermes`)
-    await get().load()
-    toast.success(t(`${n} planos importados`, n === 1 ? '1 plan imported' : `${n} plans imported`), {
-      description: skipped ? t(`${skipped} já existiam`, skipped === 1 ? '1 already existed' : `${skipped} already existed`) : undefined,
-    })
-    return n
   },
 
   async importEntrada() {

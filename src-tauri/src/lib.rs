@@ -30,10 +30,6 @@ pub(crate) fn root() -> PathBuf {
     }
 }
 
-fn hermes_dir() -> PathBuf {
-    home().join(".hermes").join("planos")
-}
-
 /// Resolve um caminho relativo à raiz, recusando qualquer coisa que escape dela.
 fn safe_join(base: &Path, rel: &str) -> Result<PathBuf, String> {
     let p = Path::new(rel);
@@ -313,40 +309,6 @@ fn git_commit(app: AppHandle, message: String) -> Result<bool, String> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct HermesData {
-    planos_json: Option<String>,
-    copies: Vec<(String, String)>,
-    analyses: Vec<(String, String)>,
-}
-
-fn read_md_dir(dir: &Path) -> Vec<(String, String)> {
-    let mut out = vec![];
-    if let Ok(entries) = fs::read_dir(dir) {
-        for e in entries.flatten() {
-            let n = e.file_name().to_string_lossy().to_string();
-            if n.ends_with(".md") {
-                if let Ok(c) = fs::read_to_string(e.path()) {
-                    out.push((n, c));
-                }
-            }
-        }
-    }
-    out
-}
-
-/// Lê (sem alterar) os dados do sistema anterior em ~/.hermes/planos.
-#[tauri::command]
-fn read_hermes() -> HermesData {
-    let h = hermes_dir();
-    HermesData {
-        planos_json: read_opt(&h.join("planos.json")),
-        copies: read_md_dir(&h.join("claude")),
-        analyses: read_md_dir(&h.join("analises")),
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct Env {
     root: String,
     home: String,
@@ -354,7 +316,6 @@ struct Env {
     has_claude_app: bool,
     has_claude: bool,
     has_codex: bool,
-    has_hermes: bool,
     has_git: bool,
     has_node: bool,
     has_gh: bool,
@@ -373,7 +334,6 @@ fn environment() -> Env {
         has_claude_app: Path::new("/Applications/Claude.app").exists(),
         has_claude: which("claude").is_some(),
         has_codex: which("codex").is_some(),
-        has_hermes: hermes_dir().join("planos.json").is_file(),
         has_git: Command::new("/usr/bin/git").arg("--version").output().map(|o| o.status.success()).unwrap_or(false),
         has_node: which("node").is_some() || nvm_node().is_some(),
         has_gh: which("gh").is_some(),
@@ -1161,7 +1121,6 @@ pub fn run() {
             move_file,
             init_workspace,
             git_commit,
-            read_hermes,
             install_cli,
             load_routines,
             hermes_cron,

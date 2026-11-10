@@ -139,7 +139,6 @@ export interface Env {
   hasClaudeApp: boolean
   hasClaude: boolean
   hasCodex: boolean
-  hasHermes: boolean
   hasGit: boolean
   hasNode: boolean
   hasGh: boolean

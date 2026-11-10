@@ -20,7 +20,6 @@ export const api = {
   moveFile: (from: string, to: string) => call<void>('move_file', { from, to }),
   initWorkspace: (projetosYaml: string) => call<void>('init_workspace', { projetosYaml }),
   gitCommit: (message: string) => call<boolean>('git_commit', { message }),
-  readHermes: () => call<{ planosJson: string | null; copies: [string, string][]; analyses: [string, string][] }>('read_hermes'),
   launchAgent: (a: { agent: string; worktree?: string; cwd: string; prompt: string; opener: Opener }) =>
     call<string>('launch_agent', a),
   openPath: (rel: string, reveal = false) => call<void>('open_path', { rel, reveal }),

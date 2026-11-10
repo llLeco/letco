@@ -37,7 +37,6 @@ export function Onboarding() {
   const [dias, setDias] = useState<number[]>(trab.dias ?? [1, 2, 3, 4, 5])
   const [inicio, setInicio] = useState(trab.inicio ?? '09:00')
   const [fim, setFim] = useState(trab.fim ?? '18:00')
-  const [importHermes, setImportHermes] = useState(!!env?.hasHermes && !ws?.exists)
   const [busy, setBusy] = useState(false)
 
   const lista = (s: string) =>
@@ -50,7 +49,7 @@ export function Onboarding() {
     setBusy(true)
     try {
       setOnboarding(true)
-      await setupWorkspace({ nome, apelidos: lista(apelidos), idioma: lang, projetos: novos, trabalho: { dias: [...dias].sort(), inicio, fim }, importHermes })
+      await setupWorkspace({ nome, apelidos: lista(apelidos), idioma: lang, projetos: novos, trabalho: { dias: [...dias].sort(), inicio, fim } })
       setNovos([])
       setPasso(2)
     } catch (e) {
@@ -101,7 +100,6 @@ export function Onboarding() {
               setInicio={setInicio}
               fim={fim}
               setFim={setFim}
-              hermes={env?.hasHermes && !ws?.exists ? { on: importHermes, set: setImportHermes } : undefined}
             />
           )}
           {passo === 2 && <PassoFerramentas />}
@@ -282,7 +280,6 @@ function PassoProjetos(p: {
   setInicio: (s: string) => void
   fim: string
   setFim: (s: string) => void
-  hermes?: { on: boolean; set: (b: boolean) => void }
 }) {
   const [texto, setTexto] = useState('')
   const usados = new Set([...p.existentes, ...p.novos].map(slugify))
@@ -356,16 +353,6 @@ function PassoProjetos(p: {
           </span>
         </div>
       </div>
-
-      {p.hermes && (
-        <label className={cn('mt-4 flex cursor-default items-start gap-3 rounded-[10px] border p-3 transition-colors', p.hermes.on ? 'border-accent/40 bg-accent-soft' : 'border-[var(--border)]')}>
-          <input type="checkbox" className="check mt-0.5" checked={p.hermes.on} onChange={(e) => p.hermes!.set(e.target.checked)} />
-          <div>
-            <div className="text-[13.5px] font-medium">{t('Importar do Hermes', 'Import from Hermes')}</div>
-            <div className="text-[12.5px] text-[var(--text-2)]">{t('Os planos de ~/.hermes/planos entram no padrão. Nada é apagado de lá.', 'Plans from ~/.hermes/planos are brought into the standard format. Nothing is deleted there.')}</div>
-          </div>
-        </label>
-      )}
     </>
   )
 }
