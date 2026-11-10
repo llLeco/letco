@@ -353,3 +353,33 @@ export function juntarPlanosPrompt(root: string, projetos: { slug: string; nome:
     `${idiomaRegra()} Nunca envie mensagens a ninguém.`,
   ].join('\n')
 }
+
+/**
+ * Arquivos soltos na tela Documentos (copiados para entrada/organizar/): a IA lê cada um, decide o que é
+ * e põe no lugar certo de ~/planos. O original, fora da pasta, nunca é tocado.
+ */
+export function organizarPrompt(root: string, rels: string[], projetos: { slug: string; nome: string }[], planos: { id: string; titulo: string; path: string }[]) {
+  return [
+    `${Nome()} soltou ${rels.length === 1 ? 'um arquivo' : `${rels.length} arquivos`} no Letco para você organizar em ${root}. Siga a skill \`planejamento\` para o formato.`,
+    '',
+    'Arquivos (já copiados para dentro da pasta):',
+    ...rels.map((r) => `- ${root}/${r}`),
+    '',
+    `Projetos: ${projetos.map((p) => `${p.nome} (${p.slug})`).join(', ') || 'nenhum ainda'}.`,
+    planos.length ? 'Planos abertos (id → título):' : '',
+    ...planos.slice(0, 80).map((p) => `- ${p.id} → ${p.titulo} (${root}/${p.path})`),
+    '',
+    'Para cada arquivo, leia o conteúdo inteiro (texto, PDF ou imagem; se for um link, abra-o se conseguir) e decida:',
+    `1. É um planejamento novo (plano, spec, brief, handoff, roadmap, design de implementação) → crie ${root}/projetos/<projeto>/planos/<AAAA-MM-DD>-<slug>/plano.md no padrão da skill (cabeçalho completo, "## Para você", objetivo, fases como checkboxes, decisões em aberto, Log com \`- <hoje>: importado de <nome do arquivo>\`) e guarde o arquivo original na mesma pasta do plano. Se vier de um link do Claude (design, artifact), ponha o link em \`origem\`.`,
+    '2. Complementa um plano que já existe (design, print, pesquisa, ata, nova versão do mesmo documento) → mova para a pasta daquele plano, acrescente no Log dele `- <hoje>: anexado <arquivo>: <o que é, em 1 linha>` e, se o conteúdo muda fases, decisões ou cobranças, atualize essas seções e reescreva "Para você".',
+    `3. É material de um projeto sem plano específico (contrato, contexto, referência) → mova para ${root}/projetos/<projeto>/docs/.`,
+    '4. Traz tarefas, pedidos ou decisões soltas (anotação, conversa) → tarefas do dia, "Pessoas e cobranças" ou Log do plano do assunto, como numa conversa colada; o arquivo vai para docs/ do projeto.',
+    '',
+    `Mova com \`git -C ${root} mv\` (ou \`mv\` se o arquivo ainda não está no git); nada fica em entrada/organizar/ ao terminar. Nunca apague um arquivo: sem lugar claro, deixe onde está e diga por quê.`,
+    'Se não der para saber o projeto ou se é plano novo ou anexo, pergunte antes de mover: mostre em 1 linha o que o arquivo é e as opções.',
+    `Ao terminar: \`git -C ${root} add -A && git -C ${root} commit -m "documentos: <o que entrou>"\`, \`~/.local/bin/planos hoje --escrever --silencioso\` e diga em até 6 linhas onde cada arquivo ficou.`,
+    `${idiomaRegra()} Nunca envie mensagens a ninguém.`,
+  ]
+    .filter((l, i, a) => l !== '' || a[i - 1] !== '')
+    .join('\n')
+}

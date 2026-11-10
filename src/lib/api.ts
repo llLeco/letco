@@ -1,4 +1,5 @@
 import type { Env, Opener, WorkspaceRaw } from './types'
+import type { DocFile } from './docs'
 import type { RoutinesRaw } from './routines'
 import type { LocalRepo } from './prs'
 import type { PostRaw } from './posts'
@@ -27,6 +28,18 @@ export const api = {
   pathExists: (path: string) => call<boolean>('path_exists', { path }),
   installSkill: () => call<string>('install_skill'),
   installCli: () => call<string>('install_cli'),
+  loadDocuments: () => call<DocFile[]>('load_documents'),
+  importDropped: (paths: string[]) => call<string[]>('import_dropped', { paths }),
+  /** arquivos soltos na janela (caminhos absolutos); `over` avisa quando algo está sendo arrastado por cima */
+  async onFileDrop(cb: (e: { type: 'over' | 'leave' } | { type: 'drop'; paths: string[] }) => void) {
+    if (!isTauri) return () => {}
+    const { getCurrentWebview } = await import('@tauri-apps/api/webview')
+    return getCurrentWebview().onDragDropEvent((ev) => {
+      const p = ev.payload
+      if (p.type === 'drop') cb({ type: 'drop', paths: p.paths })
+      else cb({ type: p.type === 'leave' ? 'leave' : 'over' })
+    })
+  },
   ghUser: () => call<string | null>('gh_user'),
   exportSkillZip: () => call<string>('export_skill_zip'),
   loadRoutines: () => call<RoutinesRaw>('load_routines'),

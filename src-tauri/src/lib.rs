@@ -142,6 +142,81 @@ fn list_extras(dir: &Path, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DocFile {
+    /// relativo à raiz, ex.: projetos/acme/docs/brief.md
+    path: String,
+    size: u64,
+    mtime: u64,
+}
+
+fn walk_docs(dir: &Path, rel: &str, depth: u8, out: &mut Vec<DocFile>) {
+    if depth == 0 || out.len() >= 5000 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || name == "node_modules" {
+            continue;
+        }
+        let p = e.path();
+        let r = format!("{rel}/{name}");
+        if p.is_dir() {
+            walk_docs(&p, &r, depth - 1, out);
+        } else {
+            out.push(DocFile { size: fs::metadata(&p).map(|m| m.len()).unwrap_or(0), mtime: mtime(&p), path: r });
+        }
+    }
+}
+
+/// Todos os arquivos de projetos/ e o que está em entrada/organizar/, para a tela Documentos.
+#[tauri::command]
+fn load_documents() -> Vec<DocFile> {
+    let r = root();
+    let mut out = vec![];
+    walk_docs(&r.join("projetos"), "projetos", 8, &mut out);
+    walk_docs(&r.join(ORGANIZAR), ORGANIZAR, 2, &mut out);
+    out
+}
+
+/// onde ficam os arquivos soltos na tela Documentos até a IA decidir o lugar de cada um
+const ORGANIZAR: &str = "entrada/organizar";
+
+/// Copia arquivos soltos na janela para entrada/organizar/ (o original fica onde está). Devolve os caminhos relativos.
+#[tauri::command]
+fn import_dropped(paths: Vec<String>) -> Result<Vec<String>, String> {
+    let dir = root().join(ORGANIZAR);
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut out = vec![];
+    for src in paths.iter().take(30) {
+        let src = Path::new(src);
+        let meta = fs::metadata(src).map_err(|e| format!("{}: {e}", src.display()))?;
+        let name = src.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        if !meta.is_file() || name.is_empty() || name.starts_with('.') {
+            return Err(format!("{name}: só arquivos (pastas não entram)"));
+        }
+        if meta.len() > 50 * 1024 * 1024 {
+            return Err(format!("{name}: maior que 50 MB"));
+        }
+        // nunca sobrescreve: brief.md, brief-2.md, brief-3.md…
+        let (stem, ext) = match name.rsplit_once('.') {
+            Some((a, b)) if !a.is_empty() => (a.to_string(), format!(".{b}")),
+            _ => (name.clone(), String::new()),
+        };
+        let mut dest = dir.join(&name);
+        let mut n = 2;
+        while dest.exists() {
+            dest = dir.join(format!("{stem}-{n}{ext}"));
+            n += 1;
+        }
+        fs::copy(src, &dest).map_err(|e| format!("{name}: {e}"))?;
+        out.push(format!("{ORGANIZAR}/{}", dest.file_name().unwrap().to_string_lossy()));
+    }
+    Ok(out)
+}
+
 /// tarefas/AAAA-MM-DD.md mais recente
 fn latest_tarefas(r: &Path) -> Option<(String, String)> {
     let name = fs::read_dir(r.join("tarefas"))
@@ -1144,6 +1219,8 @@ pub fn run() {
             path_exists,
             install_skill,
             gh_user,
+            load_documents,
+            import_dropped,
             export_skill_zip,
         ])
         .run(tauri::generate_context!())

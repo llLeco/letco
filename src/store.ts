@@ -11,7 +11,7 @@ import { matchingAsk, setTarefa, type Tarefa } from './lib/tarefas'
 import { todayISO } from './lib/dates'
 import { placeEntrada } from './lib/migrate'
 import { buildRepoIndex, linkPRs, mostCited, pickCodeDir, prContext, type LocalRepo, type RepoIndex } from './lib/prs'
-import { askPrompt, chatPrompt, conferirPrompt, discordPrompt, juntarPlanosPrompt, planPrompt, projectPrompt } from './lib/prompt'
+import { askPrompt, chatPrompt, conferirPrompt, discordPrompt, juntarPlanosPrompt, organizarPrompt, planPrompt, projectPrompt } from './lib/prompt'
 import { rotinasAtualizarPrompt, rotinasInstalarPrompt } from './lib/rotinas'
 
 const PREF_KEY = 'planos:prefs'
@@ -86,6 +86,12 @@ interface State {
   juntarPlanos: () => Promise<void>
   /** abre no app do Claude o pedido para criar as rotinas do Letco como tarefas agendadas */
   instalarRotinas: (ids: string[], atualizar?: boolean) => Promise<void>
+  /** pede à IA (Console) para ler os arquivos de entrada/organizar/ e pôr cada um no lugar */
+  organizar: (rels: string[]) => void
+  /** arquivos soltos na janela: copia para entrada/organizar/ e pede à IA para organizar */
+  soltarArquivos: (paths: string[]) => Promise<void>
+  /** link ou texto colado na tela Documentos: vira uma nota em entrada/organizar/ e segue o mesmo caminho */
+  guardarNota: (texto: string) => Promise<void>
   importEntrada: () => Promise<void>
   talk: (plan: Plan, agent?: Agente, opener?: Opener) => Promise<void>
   talkProject: (slug: string, agent: Agente, opener?: Opener) => Promise<void>
@@ -495,6 +501,36 @@ export const useStore = create<State>((set, get) => ({
       })
     } catch (e) {
       toast.error(t('Não consegui abrir o Claude', "Couldn't open Claude"), { description: String(e) })
+    }
+  },
+
+  organizar(rels) {
+    if (!rels.length) return
+    const root = get().env?.root ?? '~/planos'
+    const abertos = get().plans.filter((p) => p.fm.status !== 'feito' && p.fm.status !== 'arquivado')
+    get().sendToConsole(organizarPrompt(root, rels, get().projects.map((p) => ({ slug: p.slug, nome: p.nome })), abertos.map((p) => ({ id: p.fm.id, titulo: p.fm.titulo, path: p.path }))))
+  },
+
+  async soltarArquivos(paths) {
+    try {
+      const rels = await api.importDropped(paths)
+      get().organizar(rels)
+    } catch (e) {
+      toast.error(t('Não consegui receber os arquivos', "Couldn't take the files"), { description: String(e) })
+    }
+  },
+
+  async guardarNota(texto) {
+    const body = texto.trim()
+    if (!body) return
+    const now = new Date()
+    const stamp = `${todayISO(now)}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+    const rel = `entrada/organizar/${stamp}-nota.md`
+    try {
+      await api.writeText(rel, `${body}\n`)
+      get().organizar([rel])
+    } catch (e) {
+      toast.error(t('Não consegui guardar a nota', "Couldn't save the note"), { description: String(e) })
     }
   },
 

@@ -1,4 +1,4 @@
-import { Bot, Briefcase, CalendarClock, ChevronRight, Eye, EyeOff, FolderOpen, Layers, Megaphone, MessageCircle, MessagesSquare, Moon, NotebookText, Plus, Search, Settings, SquareTerminal, Sun, Trash2 } from 'lucide-react'
+import { Files, Bot, Briefcase, CalendarClock, ChevronRight, Eye, EyeOff, FolderOpen, Layers, Megaphone, MessageCircle, MessagesSquare, Moon, NotebookText, Plus, Search, Settings, SquareTerminal, Sun, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
 import { useStore } from '../store'
@@ -110,6 +110,9 @@ export function Sidebar() {
         </NavItem>
         <NavItem active={current?.kind === 'resumos'} icon={<NotebookText size={15} />} onClick={() => go({ kind: 'resumos' })}>
           {t('Resumos', 'Summaries')}
+        </NavItem>
+        <NavItem active={current?.kind === 'docs'} icon={<Files size={15} />} onClick={() => go({ kind: 'docs' })}>
+          {t('Documentos', 'Documents')}
         </NavItem>
         <NavItem
           active={current?.kind === 'all'}

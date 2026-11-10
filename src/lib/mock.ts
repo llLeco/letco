@@ -209,6 +209,16 @@ export async function mockApi(cmd: string, args: Record<string, unknown> = {}): 
           mtime: Date.now(),
         },
       ]
+    case 'load_documents':
+      return [...files.keys()]
+        .filter((k) => k.startsWith('projetos/') || k.startsWith('entrada/organizar/'))
+        .map((k, i) => ({ path: k, size: files.get(k)!.length, mtime: Date.now() - i * 3600e3 }))
+    case 'import_dropped': {
+      const rels = (args.paths as string[]).map((p) => `entrada/organizar/${p.split('/').pop()}`)
+      for (const r of rels) files.set(r, '(arquivo solto na prévia)')
+      window.dispatchEvent(new Event('planos-mock-changed'))
+      return rels
+    }
     case 'load_resumos': {
       const dia = (n: number) => new Date(Date.now() - n * 86400e3).toISOString().slice(0, 10)
       const r = (n: number, m: number[], frase: string, corpo: string) => [

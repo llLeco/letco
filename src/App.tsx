@@ -5,6 +5,7 @@ import { t } from "./lib/i18n";
 import { useStore } from "./store";
 import { api } from "./lib/api";
 import { Sidebar } from "./components/Sidebar";
+import { DocumentosView } from "./components/DocumentosView";
 import { TodayView } from "./components/TodayView";
 import { PlanDetail } from "./components/PlanDetail";
 import { AllPlansView, ProjectView } from "./components/ListViews";
@@ -52,6 +53,7 @@ function Main() {
             {view.kind === "routines" && <RoutinesView />}
             {view.kind === "divulgacao" && <DivulgacaoView />}
             {view.kind === "resumos" && <ResumosView />}
+            {view.kind === "docs" && <DocumentosView />}
             {view.kind === "discord" && <DiscordView />}
           </div>
         </div>

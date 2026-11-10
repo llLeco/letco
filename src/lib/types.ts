@@ -157,5 +157,6 @@ export type View =
   | { kind: 'routines' }
   | { kind: 'divulgacao' }
   | { kind: 'resumos' }
+  | { kind: 'docs' }
   | { kind: 'discord' }
   | { kind: 'console' }
