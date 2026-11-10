@@ -7,7 +7,7 @@ import { parseDay, todayISO } from '../lib/dates'
 import { dfLocale, isEn, t } from '../lib/i18n'
 import { campaignLabel, parsePost, withStatus, type Post, type PostStatus } from '../lib/posts'
 import { CAMPANHAS_FILE, DIVULGAR_STATE_DIR, divulgarConsolePrompt, parseCampanhas } from '../lib/divulgar'
-import { useStore } from '../store'
+import { commitOrWarn, useStore } from '../store'
 import { Button, cn, Empty, IconButton, SectionTitle } from './ui'
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -226,7 +226,7 @@ export function DivulgacaoView() {
   async function setStatus(p: Post, status: PostStatus) {
     try {
       await api.writeText(`${p.dir}/post.md`, withStatus(p, status, todayISO()))
-      await api.gitCommit(`divulgacao: ${p.campaign}/${p.folder} ${status}`).catch(() => undefined)
+      await commitOrWarn(`divulgacao: ${p.campaign}/${p.folder} ${status}`)
       await reload()
     } catch (e) {
       toast.error(t('Não consegui salvar', "Couldn't save"), { description: String(e) })

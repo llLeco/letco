@@ -4,7 +4,7 @@ import { ChevronDown, Hash, Hourglass, MessageCircle, MessagesSquare, RefreshCw,
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { dfLocale, isEn, t } from '../lib/i18n'
-import { useStore } from '../store'
+import { commitOrWarn, useStore } from '../store'
 import { parseDay } from '../lib/dates'
 import { toggleLine } from '../lib/plan'
 import { logEntries } from '../lib/digest'
@@ -251,7 +251,7 @@ export function DiscordView() {
       const plan = plans.find((x) => x.fm.id === p.t.planId)
       const ask = matchingAsk(plan, p.t)
       if (plan && ask && ask.done === p.t.done) await savePlan(plan, toggleLine(plan, ask.line), `${p.t.done ? 'reaberto' : 'feito'}: ${ask.label.slice(0, 60)}`)
-      await api.gitCommit(`discord: ${p.t.done ? 'reaberto' : 'feito'} ${p.t.label.slice(0, 50)}`).catch(() => undefined)
+      await commitOrWarn(`discord: ${p.t.done ? 'reaberto' : 'feito'} ${p.t.label.slice(0, 50)}`)
       await Promise.all([reload(), load()])
     } catch (e) {
       toast.error(t('Não consegui salvar', "Couldn't save"), { description: String(e) })

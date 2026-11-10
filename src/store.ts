@@ -5,14 +5,14 @@ import { api } from './lib/api'
 import type { Agente, Ask, Config, ContextKey, Env, Idioma, Opener, Plan, Prioridade, ProjectInfo, Usuario, View, WorkspaceRaw } from './lib/types'
 import { setUsuario } from './lib/usuario'
 import { idiomaDoSistema, setLang, t } from './lib/i18n'
-import { buildProjects, configToYaml, detectContext, DEFAULT_CONFIG, orderedSlugs, titleCase, parseConfig } from './lib/config'
+import { buildProjects, configToYaml, detectContext, DEFAULT_CONFIG, orderedSlugs, titleCase, parseConfig, configError } from './lib/config'
 import { newPlanMarkdown, parsePlan, slugify, toggleLine } from './lib/plan'
 import { matchingAsk, setTarefa, type Tarefa } from './lib/tarefas'
 import { todayISO } from './lib/dates'
 import { migrateHermes, placeEntrada } from './lib/migrate'
 import { buildRepoIndex, linkPRs, mostCited, pickCodeDir, prContext, type LocalRepo, type RepoIndex } from './lib/prs'
 import { askPrompt, chatPrompt, conferirPrompt, discordPrompt, juntarPlanosPrompt, planPrompt, projectPrompt } from './lib/prompt'
-import { rotinasInstalarPrompt } from './lib/rotinas'
+import { rotinasAtualizarPrompt, rotinasInstalarPrompt } from './lib/rotinas'
 
 const PREF_KEY = 'planos:prefs'
 interface Prefs {
@@ -85,7 +85,7 @@ interface State {
   /** abre no app do Claude o pedido para juntar os planos que a pessoa já tem espalhados no Mac */
   juntarPlanos: () => Promise<void>
   /** abre no app do Claude o pedido para criar as rotinas do Letco como tarefas agendadas */
-  instalarRotinas: (ids: string[]) => Promise<void>
+  instalarRotinas: (ids: string[], atualizar?: boolean) => Promise<void>
   importHermes: () => Promise<number>
   importEntrada: () => Promise<void>
   talk: (plan: Plan, agent?: Agente, opener?: Opener) => Promise<void>
@@ -129,12 +129,32 @@ function scheduleCommit(msg: string) {
   commitTimer = setTimeout(() => {
     const message = [...pendingMsgs].slice(0, 6).join('; ')
     pendingMsgs.clear()
-    api.gitCommit(message).catch(() => {})
+    commitOrWarn(message)
   }, 2500)
+}
+
+/** commit em ~/planos; se falhar, avisa (a mudança já está no arquivo, só não entrou no histórico) */
+export function commitOrWarn(message: string) {
+  return api.gitCommit(message).catch((e) => {
+    toast.error(t('Não consegui gravar no histórico (git)', "Couldn't save to history (git)"), {
+      id: 'git-commit',
+      description: t(`A mudança está salva no arquivo, mas o commit falhou: ${String(e).trim().slice(0, 200)}`, `The change is saved in the file, but the commit failed: ${String(e).trim().slice(0, 200)}`),
+      duration: 10000,
+    })
+    return false
+  })
 }
 
 function hydrate(ws: WorkspaceRaw) {
   const config = parseConfig(ws.projetosYaml)
+  const erro = configError(ws.projetosYaml)
+  if (erro) {
+    toast.error(t('O projetos.yaml tem um erro e está sendo ignorado', 'projetos.yaml has an error and is being ignored'), {
+      id: 'config-erro',
+      description: t(`Ordem, projetos escondidos, seu nome e os idiomas voltam ao padrão até corrigir. ${erro}`, `Order, hidden projects, your name and languages fall back to defaults until it's fixed. ${erro}`),
+      duration: Infinity,
+    })
+  } else toast.dismiss('config-erro')
   setUsuario(config.usuario)
   // sem projetos.yaml (primeira vez), o idioma do sistema; com a pasta, o do perfil (sem campo = português)
   const lang: Idioma = ws.projetosYaml ? (config.usuario?.idioma ?? 'pt-BR') : useStore.getState().lang
@@ -480,7 +500,7 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  async instalarRotinas(ids) {
+  async instalarRotinas(ids, atualizar) {
     if (!ids.length) return
     if (!get().env?.hasClaudeApp) {
       toast.error(t('As rotinas rodam no app do Claude', 'Routines run in the Claude app'), {
@@ -490,9 +510,11 @@ export const useStore = create<State>((set, get) => ({
     }
     const root = get().env?.root ?? '~/planos'
     try {
-      await api.launchAgent({ agent: 'claude', worktree: root, cwd: root, prompt: rotinasInstalarPrompt(root, ids), opener: 'claude-app' })
+      await api.launchAgent({ agent: 'claude', worktree: root, cwd: root, prompt: atualizar ? rotinasAtualizarPrompt(root, ids) : rotinasInstalarPrompt(root, ids), opener: 'claude-app' })
       toast.success(t('Pedido das rotinas aberto no app do Claude', 'Routines request opened in the Claude app'), {
-        description: t('Envie o pedido: ele cria as tarefas agendadas e pergunta se você quer rodar cada uma agora.', 'Send the request: it creates the scheduled tasks and asks whether you want to run each one now.'),
+        description: atualizar
+          ? t('Envie o pedido: ele troca o texto das rotinas pelo desta versão, sem mexer nos horários.', 'Send the request: it replaces the routine text with this version, without touching the schedules.')
+          : t('Envie o pedido: ele cria as tarefas agendadas e pergunta se você quer rodar cada uma agora.', 'Send the request: it creates the scheduled tasks and asks whether you want to run each one now.'),
       })
     } catch (e) {
       toast.error(t('Não consegui abrir o Claude', "Couldn't open Claude"), { description: String(e) })

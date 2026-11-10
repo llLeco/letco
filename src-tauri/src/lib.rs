@@ -290,7 +290,7 @@ fn init_workspace(projetos_yaml: String) -> Result<(), String> {
 
 /// Commit de tudo que mudou. Envia ao remoto se houver um configurado.
 #[tauri::command]
-fn git_commit(message: String) -> Result<bool, String> {
+fn git_commit(app: AppHandle, message: String) -> Result<bool, String> {
     if !root().join(".git").exists() {
         return Ok(false);
     }
@@ -301,8 +301,11 @@ fn git_commit(message: String) -> Result<bool, String> {
     }
     git(&["commit", "-q", "-m", &message])?;
     if !git(&["remote"]).unwrap_or_default().trim().is_empty() {
-        std::thread::spawn(|| {
-            let _ = git(&["push", "-q"]);
+        // o envio roda em segundo plano; se falhar, a janela avisa (o commit local já está salvo)
+        std::thread::spawn(move || {
+            if let Err(e) = git(&["push", "-q"]) {
+                let _ = app.emit("planos://push-failed", e.trim().to_string());
+            }
         });
     }
     Ok(true)
@@ -356,6 +359,8 @@ struct Env {
     has_node: bool,
     has_gh: bool,
     skill_installed: bool,
+    /// a skill instalada é diferente da que vem nesta versão do app
+    skill_outdated: bool,
     cli_installed: bool,
 }
 
@@ -373,6 +378,7 @@ fn environment() -> Env {
         has_node: which("node").is_some() || nvm_node().is_some(),
         has_gh: which("gh").is_some(),
         skill_installed: home().join(".claude/skills/planejamento/SKILL.md").is_file(),
+        skill_outdated: read_opt(&home().join(".claude/skills/planejamento/SKILL.md")).is_some_and(|s| s.trim() != SKILL_MD.trim()),
         cli_installed: home().join(".local/bin/planos").is_file(),
     }
 }

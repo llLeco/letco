@@ -64,6 +64,12 @@ export const api = {
     const r = await open({ directory: true, defaultPath })
     return typeof r === 'string' ? r : null
   },
+  /** o envio de ~/planos ao remoto falhou (o commit local ficou salvo) */
+  async onPushFailed(cb: (erro: string) => void) {
+    if (!isTauri) return () => {}
+    const { listen } = await import('@tauri-apps/api/event')
+    return listen<string>('planos://push-failed', (e) => cb(e.payload))
+  },
   async onChange(cb: () => void) {
     if (!isTauri) {
       window.addEventListener('planos-mock-changed', cb)

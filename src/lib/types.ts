@@ -144,6 +144,8 @@ export interface Env {
   hasNode: boolean
   hasGh: boolean
   skillInstalled: boolean
+  /** a skill instalada é diferente da que vem nesta versão do app */
+  skillOutdated?: boolean
   cliInstalled: boolean
 }
 

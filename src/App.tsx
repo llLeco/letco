@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import * as Tip from "@radix-ui/react-tooltip";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
+import { t } from "./lib/i18n";
 import { useStore } from "./store";
 import { api } from "./lib/api";
 import { Sidebar } from "./components/Sidebar";
@@ -70,10 +71,21 @@ export default function App() {
     load();
     let unlisten: (() => void) | undefined;
     api.onChange(() => load()).then((u) => (unlisten = u));
+    let unlistenPush: (() => void) | undefined;
+    api
+      .onPushFailed((erro) =>
+        toast.error(t("Não consegui enviar os planos ao remoto", "Couldn't push the plans to the remote"), {
+          id: "git-push",
+          description: t(`O commit ficou salvo neste Mac. Erro do git: ${erro.slice(0, 200)}`, `The commit is saved on this Mac. Git error: ${erro.slice(0, 200)}`),
+          duration: 12000,
+        }),
+      )
+      .then((u) => (unlistenPush = u));
     const onFocus = () => load();
     window.addEventListener("focus", onFocus);
     return () => {
       unlisten?.();
+      unlistenPush?.();
       window.removeEventListener("focus", onFocus);
     };
   }, [load]);
@@ -124,8 +136,10 @@ export default function App() {
 
   if (!ready) return <div className="h-full bg-[var(--bg)]" />;
 
+
   return (
     <Tip.Provider>
+      <span data-app-ready hidden />
       {exists && !onboarding ? (
         <div key={lang} className="flex h-full">
           <Sidebar />

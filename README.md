@@ -108,6 +108,7 @@ pnpm tauri dev        # native app with reload
 pnpm dev              # interface only, in the browser, with sample data (add ?novo to the URL to try the first-run setup)
 pnpm cli              # bundles the planos command into dist-cli/planos.mjs
 pnpm release          # command + Letco.app + .dmg in src-tauri/target/release/bundle/
+pnpm check            # types, lint and tests (what CI runs on every PR)
 ```
 
 `PLANOS_DIR=/another/folder` changes the root (handy for testing without touching `~/planos`).

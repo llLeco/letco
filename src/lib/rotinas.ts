@@ -180,6 +180,33 @@ Ao final, em até 4 linhas: o que entrou em cada campanha, os posts prontos para
 export const rotina = (id: string) => ROTINAS.find((r) => r.id === id || r.id === `planos-${id}`)
 
 /** pedido para o Claude do app criar as tarefas agendadas (o texto completo de cada uma sai de `planos rotina <id>`) */
+/** corpo de um SKILL.md de tarefa agendada (sem o cabeçalho), para comparar com o texto desta versão */
+export const corpoSkill = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n?/, '').trim()
+
+/** rotinas instaladas cujo texto é diferente do que esta versão do app gera */
+export function rotinasDesatualizadas(root: string, instaladas: [string, string][]) {
+  const map = new Map(instaladas)
+  return ROTINAS.filter((r) => map.has(r.id) && corpoSkill(map.get(r.id)!) !== r.texto(root).trim())
+}
+
+/** pedido para o Claude do app trocar o texto das rotinas já instaladas pelo desta versão (mantém horário e estado) */
+export function rotinasAtualizarPrompt(root: string, ids: string[]) {
+  const lista = ROTINAS.filter((r) => ids.includes(r.id))
+  return [
+    `Atualize as rotinas do Letco que já existem como tarefas agendadas do app do Claude. A pasta dos planos é ${root}.`,
+    '',
+    'Para cada rotina abaixo:',
+    `1. Rode \`${PLANOS} rotina <id>\` e use a saída inteira, sem mudar nada, como o novo prompt da tarefa.`,
+    '2. Atualize a tarefa com a sua ferramenta de tarefas agendadas (update_scheduled_task): troque só o prompt, o título e a descrição. Não mude o horário nem ligue ou desligue a tarefa.',
+    '3. Se a tarefa não existir, não crie: diga que ela não existe.',
+    '',
+    ...lista.map((r) => `- ${r.id} · "${r.titulo}" · ${r.descricao}`),
+    '',
+    'Antes de trocar, se o prompt atual de alguma tiver regras que o novo não tem (algo escrito à mão), mostre a diferença em 1 ou 2 linhas e pergunte se pode trocar.',
+    `${idiomaRegra()} Não mexa em nenhum outro arquivo.`,
+  ].join('\n')
+}
+
 export function rotinasInstalarPrompt(root: string, ids: string[]) {
   const lista = ROTINAS.filter((r) => ids.includes(r.id))
   return [

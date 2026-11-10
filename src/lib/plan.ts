@@ -125,7 +125,7 @@ const ASK_PREFIX: [RegExp, AskKind][] = [
 ]
 
 export function askOf(item: CheckItem): Ask {
-  const m = item.text.match(/^\*{0,2}([^:*]{2,40}?)\*{0,2}:\s+(.*)$/)
+  const m = item.text.match(/^\*{0,2}([^:*]{2,40}?)\*{0,2}:\*{0,2}\s+(.*)$/)
   if (m) {
     const key = normalize(m[1])
     const hit = ASK_PREFIX.find(([re]) => re.test(key))
@@ -188,7 +188,7 @@ function checkItems(lines: string[], sec?: Section): CheckItem[] {
     const m = lines[i].match(CHECK_RE)
     if (!m || /^\s{2,}/.test(lines[i])) continue
     const text = m[4].trim()
-    const pm = text.match(/^\*{0,2}([^:*]{1,40}?)\*{0,2}:\s+(.*)$/)
+    const pm = text.match(/^\*{0,2}([^:*]{1,40}?)\*{0,2}:\*{0,2}\s+(.*)$/)
     const since = text.match(/desde\s+(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2})/i)?.[1]
     out.push({ text, done: m[2] !== ' ', line: i, person: pm?.[1]?.trim(), since })
   }

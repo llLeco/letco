@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarClock, Check, Download, FileCode2, FolderOpen, FolderSearch, GitBranch, Hash, KeyRound, Languages, RefreshCw, Sparkles, SquareTerminal, UserRound, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { useStore } from '../store'
+import { commitOrWarn, useStore } from '../store'
 import { api } from '../lib/api'
 import { CONTEXT_LABEL } from '../lib/config'
 import { Button, cn, IconButton } from './ui'
@@ -77,6 +77,7 @@ export function SettingsView() {
   const setLangUI = useStore((s) => s.setLangUI)
   const saveUsuario = useStore((s) => s.saveUsuario)
   const [skill, setSkill] = useState(!!env?.skillInstalled)
+  const [skillOld, setSkillOld] = useState(!!env?.skillOutdated)
   const [cli, setCli] = useState(!!env?.cliInstalled)
   const trab = config.contextos.trabalho
   const dias = isEn() ? ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
@@ -180,22 +181,29 @@ export function SettingsView() {
         <Row
           icon={<FileCode2 size={16} />}
           title={t('Skill planejamento', 'planejamento skill')}
-          desc={t('Instala o padrão de documentos no Claude (~/.claude/skills) e no AGENTS.md global do Codex, para todo plano novo nascer no formato certo.', "Installs the document format in Claude (~/.claude/skills) and in Codex's global AGENTS.md, so every new plan starts in the right format.")}
+          desc={
+            skillOld
+              ? t('A skill instalada é de uma versão anterior do app. Atualize para o Claude e o Codex escreverem planos no formato atual.', 'The installed skill is from an earlier version of the app. Update it so Claude and Codex write plans in the current format.')
+              : t('Instala o padrão de documentos no Claude (~/.claude/skills) e no AGENTS.md global do Codex, para todo plano novo nascer no formato certo.', "Installs the document format in Claude (~/.claude/skills) and in Codex's global AGENTS.md, so every new plan starts in the right format.")
+          }
         >
           <Button
             size="sm"
-            variant={skill ? 'secondary' : 'primary'}
+            variant={skill && !skillOld ? 'secondary' : 'primary'}
             onClick={async () => {
               try {
                 await api.installSkill()
                 setSkill(true)
+                setSkillOld(false)
                 toast.success(t('Skill planejamento instalada', 'planejamento skill installed'), { description: t('Claude e Codex', 'Claude and Codex') })
               } catch (e) {
                 toast.error(t('Não consegui instalar', "Couldn't install"), { description: String(e) })
               }
             }}
           >
-            {skill ? (
+            {skillOld ? (
+              t('Atualizar', 'Update')
+            ) : skill ? (
               <>
                 <Check size={13} /> {t('Reinstalar', 'Reinstall')}
               </>
@@ -280,7 +288,7 @@ function DiscordSettings() {
   async function saveCanais(next: DiscordCanal[]) {
     try {
       await api.writeText(DISCORD_FILE, canaisYaml(next))
-      await api.gitCommit('discord: canais').catch(() => undefined)
+      await commitOrWarn('discord: canais')
       await load()
     } catch (e) {
       toast.error(t('Não consegui salvar os canais', "Couldn't save the channels"), { description: String(e) })

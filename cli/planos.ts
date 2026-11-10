@@ -8,7 +8,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import type { ContextKey, Plan, Prioridade, Status, WorkspaceRaw } from '../src/lib/types'
 import { PRIORIDADES, STATUSES } from '../src/lib/types'
-import { buildProjects, configToYaml, CONTEXT_LABEL, DEFAULT_CONFIG, detectContext, orderedSlugs, titleCase, parseConfig } from '../src/lib/config'
+import { buildProjects, configToYaml, CONTEXT_LABEL, DEFAULT_CONFIG, detectContext, orderedSlugs, titleCase, parseConfig, configError } from '../src/lib/config'
 import { addPhase, ASK_LABEL, splitFrontmatter, newPlanMarkdown, nextPhase, normalize, parsePlan, pendingAsks, phaseLabel, progress, setFields, slugify, togglePhase } from '../src/lib/plan'
 import { buildToday, isOpen } from '../src/lib/score'
 import { daysUntil, dueLabel, todayISO } from '../src/lib/dates'
@@ -141,7 +141,11 @@ function commit(message: string) {
   if (!existsSync(join(ROOT, '.git'))) return
   git('add', '-A')
   if (!git('status', '--porcelain').stdout.trim()) return
-  git('commit', '-q', '-m', message)
+  const r = git('commit', '-q', '-m', message)
+  if (r.status !== 0) {
+    console.error(yellow('! ') + t(`o commit em ${ROOT} falhou (a mudança está salva no arquivo): `, `the commit in ${ROOT} failed (the change is saved in the file): `) + (r.stderr || r.stdout || '').trim().split('\n')[0])
+    return
+  }
   if (git('remote').stdout.trim()) spawn('git', ['push', '-q'], { cwd: ROOT, detached: true, stdio: 'ignore' }).unref()
 }
 
@@ -161,6 +165,8 @@ function load() {
       ),
     )
   const config = parseConfig(ws.projetosYaml)
+  const erroCfg = configError(ws.projetosYaml)
+  if (erroCfg) console.error(yellow('! ') + `projetos.yaml: ${erroCfg} — ` + t('o arquivo está sendo ignorado (ordem, nome e idiomas no padrão)', 'the file is being ignored (default order, name and languages)'))
   setUsuario(config.usuario)
   setLang(config.usuario?.idioma)
   const plans = ws.plans.map(parsePlan)

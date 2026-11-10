@@ -105,6 +105,7 @@ pnpm tauri dev        # app nativo com recarga
 pnpm dev              # só a interface no navegador, com dados de exemplo
 pnpm cli              # empacota o comando planos em dist-cli/planos.mjs
 pnpm release          # comando + Letco.app + .dmg em src-tauri/target/release/bundle/
+pnpm check            # tipos, lint e testes (o que o CI roda em cada PR)
 ```
 
 `PLANOS_DIR=/outra/pasta` troca a raiz (útil para testar sem mexer em `~/planos`).

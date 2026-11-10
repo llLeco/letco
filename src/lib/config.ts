@@ -26,6 +26,18 @@ export function configToYaml(c: Config) {
   return HEADER + '\n' + body
 }
 
+/** erro de leitura do projetos.yaml (null se está ok). Com erro, o app usa o padrão: sem ordem, sem nome, sem idiomas. */
+export function configError(text: string | null): string | null {
+  if (!text) return null
+  try {
+    const raw = load(text, { schema: CORE_SCHEMA })
+    if (raw !== null && raw !== undefined && typeof raw !== 'object') return 'o arquivo não é uma lista de chaves'
+    return null
+  } catch (e) {
+    return String((e as Error).message ?? e).split('\n')[0]
+  }
+}
+
 export function parseConfig(text: string | null): Config {
   if (!text) return DEFAULT_CONFIG
   try {

@@ -7,7 +7,7 @@ import { dfLocale, isEn, t } from '../lib/i18n'
 import { cronHuman, parseRoutines, slotState, SOURCE_LABEL, timesOn, type Routine, type RoutineSource, type RoutinesData, type SlotState } from '../lib/routines'
 import { useNow } from '../hooks'
 import { useStore } from '../store'
-import { ROTINAS } from '../lib/rotinas'
+import { ROTINAS, rotinasDesatualizadas } from '../lib/rotinas'
 import { Button, cn, Empty, IconButton, SectionTitle, Tooltip } from './ui'
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -223,12 +223,16 @@ function Timeline({ routines, now }: { routines: Routine[]; now: Date }) {
 export function RoutinesView() {
   const now = useNow()
   const [data, setData] = useState<RoutinesData | null>(null)
+  const [skills, setSkills] = useState<[string, string][]>([])
+  const root = useStore((s) => s.env?.root ?? '~/planos')
   const [onlyPlanning, setOnlyPlanning] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
     try {
-      setData(parseRoutines(await api.loadRoutines()))
+      const raw = await api.loadRoutines()
+      setSkills(raw.claudeSkills)
+      setData(parseRoutines(raw))
     } catch (e) {
       toast.error(t('Não consegui ler as rotinas', "Couldn't read the routines"), { description: String(e) })
     }
@@ -349,7 +353,7 @@ export function RoutinesView() {
       )}
 
       <div className="flex flex-col gap-5">
-        <RotinasDoLetco instaladas={new Set(all.filter((r) => r.source === 'claude').map((r) => r.id))} />
+        <RotinasDoLetco instaladas={new Set(all.filter((r) => r.source === 'claude').map((r) => r.id))} velhas={rotinasDesatualizadas(root, skills).map((r) => r.id)} />
 
         <div>
           <SectionTitle icon={<CalendarClock size={14} />}>{t('Hoje', 'Today')}, {format(now, 'EEEE', { locale: dfLocale() })}</SectionTitle>
@@ -378,8 +382,8 @@ export function RoutinesView() {
                 {s === 'planos' && !planosOn && (
                   <div className="px-2 pb-1 pt-2 text-[12.5px] text-[var(--text-3)]">
                     {t(
-                      'Opcional: a tarefa "Planos: lista do dia" do Claude já gera o hoje.md. Ligue se quiser o arquivo atualizado mesmo com o app do Claude fechado.',
-                      'Optional: Claude\'s "Planos: lista do dia" task already generates hoje.md. Turn this on if you want the file updated even with the Claude app closed.',
+                      'Opcional: a rotina da lista do dia no Claude já gera o hoje.md. Ligue se quiser o arquivo atualizado mesmo com o app do Claude fechado.',
+                      'Optional: the daily list routine in Claude already generates hoje.md. Turn this on if you want the file updated even with the Claude app closed.',
                     )}
                   </div>
                 )}
@@ -431,7 +435,7 @@ export function RoutinesView() {
 }
 
 /** quais das rotinas do Letco já existem no app do Claude, com o botão para pedir as que faltam */
-function RotinasDoLetco({ instaladas }: { instaladas: Set<string> }) {
+function RotinasDoLetco({ instaladas, velhas }: { instaladas: Set<string>; velhas: string[] }) {
   const instalarRotinas = useStore((s) => s.instalarRotinas)
   const faltam = ROTINAS.filter((r) => !instaladas.has(r.id))
   const n = ROTINAS.length - faltam.length
@@ -451,8 +455,21 @@ function RotinasDoLetco({ instaladas }: { instaladas: Set<string> }) {
                 `Missing: ${faltam.map((r) => r.titulo.replace('Letco: ', '')).join(', ')}. Claude creates each one as a scheduled task.`,
               )
             : t('Todas instaladas. O texto de cada uma sai de planos rotina <id>.', 'All installed. The text for each comes from planos rotina <id>.')}
+          {velhas.length > 0 && (
+            <div className="mt-1 text-amber-600 dark:text-amber-400">
+              {t(
+                `${velhas.length === 1 ? '1 rotina instalada tem' : `${velhas.length} rotinas instaladas têm`} o texto de uma versão anterior do app.`,
+                `${velhas.length === 1 ? '1 installed routine has' : `${velhas.length} installed routines have`} text from an earlier version of the app.`,
+              )}
+            </div>
+          )}
         </div>
       </div>
+      {velhas.length > 0 && (
+        <Button size="sm" onClick={() => instalarRotinas(velhas, true)}>
+          {t('Atualizar o texto', 'Update the text')}
+        </Button>
+      )}
       {faltam.length > 0 && (
         <Button size="sm" onClick={() => instalarRotinas(pedir.map((r) => r.id))}>
           {n ? t('Instalar as que faltam', 'Install the missing ones') : t(`Instalar as ${pedir.length} principais`, `Install the ${pedir.length} main ones`)}
