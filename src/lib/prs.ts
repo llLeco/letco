@@ -138,7 +138,7 @@ const MAIN_BRANCHES = new Set(['main', 'master', 'develop', 'dev', ''])
 /**
  * Pasta de código onde a IA deve abrir para este plano (ou projeto): um clone citado no texto,
  * o worktree na branch citada no plano, o clone principal do repo do plano ou, sem repo,
- * o clone com o nome do projeto (ex.: ~/…/rafescan para o projeto rafescan).
+ * o clone com o nome do projeto (ex.: ~/…/acme para o projeto acme).
  */
 export function pickCodeDir(text: string, repo: string | undefined, clones: LocalRepo[], home: string, slug?: string): string | undefined {
   const tilde = (p: string) => (home && p.startsWith(home + '/') ? '~' + p.slice(home.length) : p)
