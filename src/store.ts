@@ -7,7 +7,7 @@ import { setUsuario } from './lib/usuario'
 import { idiomaDoSistema, setLang, t } from './lib/i18n'
 import { buildProjects, configToYaml, detectContext, DEFAULT_CONFIG, orderedSlugs, parseConfig, configError } from './lib/config'
 import { newPlanMarkdown, parsePlan, slugify, toggleLine } from './lib/plan'
-import { matchingAsk, setTarefa, type Tarefa } from './lib/tarefas'
+import { matchingAsk, setAdiado, setTarefa, type Tarefa } from './lib/tarefas'
 import { todayISO } from './lib/dates'
 import { placeEntrada } from './lib/migrate'
 import { buildRepoIndex, linkPRs, mostCited, pickCodeDir, prContext, type LocalRepo, type RepoIndex } from './lib/prs'
@@ -67,6 +67,8 @@ interface State {
   savePlan: (plan: Plan, raw: string, msg: string) => Promise<void>
   /** marca/desmarca uma tarefa do dia (e o mesmo item em "Precisa de você" do plano) */
   toggleTarefa: (t: Tarefa) => Promise<void>
+  /** adia a tarefa até a data (AAAA-MM-DD), ou traz de volta com null */
+  adiarTarefa: (t: Tarefa, ate: string | null, motivo?: string) => Promise<void>
   createPlan: (input: { projeto: string; titulo: string; prioridade: Prioridade; prazo?: string; objetivo?: string; fases: string[] }) => Promise<Plan | null>
   createProject: (nome: string) => Promise<string | null>
   /** idioma dos rascunhos de mensagem do projeto (en é o padrão e some do yaml) */
@@ -269,6 +271,21 @@ export const useStore = create<State>((set, get) => ({
     const plan = get().plans.find((p) => p.fm.id === tarefa.planId)
     const ask = matchingAsk(plan, tarefa)
     if (plan && ask && ask.done === tarefa.done) await get().savePlan(plan, toggleLine(plan, ask.line), `${tarefa.done ? 'reaberto' : 'feito'}: ${ask.label.slice(0, 60)}`)
+  },
+
+  async adiarTarefa(tarefa, ate, motivo) {
+    const ws = get().ws
+    if (!ws?.tarefas) return
+    const [file, raw] = ws.tarefas
+    const next = setAdiado(raw, tarefa.line, ate, motivo)
+    set({ ws: { ...ws, tarefas: [file, next] } })
+    try {
+      await api.writeText(`tarefas/${file}`, next)
+      scheduleCommit(`tarefas: ${ate ? `adiada até ${ate}` : 'de volta'} ${tarefa.label.slice(0, 50)}`)
+    } catch (e) {
+      toast.error(t('Não consegui salvar', "Couldn't save"), { description: String(e) })
+      set({ ws: { ...ws, tarefas: [file, raw] } })
+    }
   },
 
   async createPlan(input) {

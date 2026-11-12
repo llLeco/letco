@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseConferido } from './conferido'
-import { parseTarefas, setTarefa, tarefaKeys } from './tarefas'
+import { isAdiada, parseTarefas, setAdiado, setTarefa, tarefaKeys } from './tarefas'
 
 const RAW = `# Tarefas de quarta, 28/10
 
@@ -46,6 +46,31 @@ describe('parseTarefas', () => {
     const a = tarefaKeys(parseTarefas('a.md', '- [ ] Aprovar: Revisão do PR <!-- plano: p -->'))
     const b = tarefaKeys(parseTarefas('b.md', '- [ ] Aprovar: revisao do pr <!-- plano: p -->'))
     expect([...a]).toEqual([...b])
+  })
+})
+
+describe('adiar', () => {
+  const now = new Date(2026, 10, 12)
+  it('adia, lê de volta e mantém a conferência', () => {
+    const t = parseTarefas('2026-10-28.md', RAW)
+    const raw = setAdiado(RAW, t.items[0].line, '2026-11-16', 'esperando o Sam')
+    const again = parseTarefas('2026-10-28.md', raw)
+    expect(again.items[0].adiado).toEqual({ ate: '2026-11-16', motivo: 'esperando o Sam' })
+    expect(again.items[0].conferido?.status).toBe('feito')
+    expect(again.items.map((i) => i.kind)).toEqual(['aprovar', 'cobrar', 'revisar'])
+    expect(isAdiada(again.items[0], now)).toBe(true)
+    expect(isAdiada(again.items[2], now)).toBe(false)
+  })
+  it('adiar de novo troca a data; tirar o adiamento devolve o arquivo original', () => {
+    const line = parseTarefas('a.md', RAW).items[2].line
+    const um = setAdiado(RAW, line, '2026-11-16')
+    const dois = setAdiado(um, line, '2026-11-20')
+    expect(dois.match(/Adiado até/g)).toHaveLength(1)
+    expect(setAdiado(dois, line, null)).toBe(RAW)
+  })
+  it('quando a data chega, a tarefa volta', () => {
+    const raw = setAdiado(RAW, parseTarefas('a.md', RAW).items[0].line, '2026-11-12')
+    expect(isAdiada(parseTarefas('a.md', raw).items[0], now)).toBe(false)
   })
 })
 

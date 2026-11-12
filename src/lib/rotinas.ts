@@ -47,6 +47,8 @@ Antes de começar:
 - ${falta(root)}
 - Confirme que \`gh auth status\` está ok; se não estiver, pare e diga que o gh precisa de login.
 
+Antes dos planos, o trabalho feito fora do app: rode \`${PLANOS} atividade\`. Ele lista as sessões recentes do Claude e os PRs dos últimos 2 dias, cada um com o plano que já o cita ou "SEM PLANO", e imprime o que fazer. Siga esse pedido primeiro (sem fazer o commit dele: entra no commit único do fim). Os planos que você atualizar ali já contam como conferidos nesta rodada.
+
 Quais planos conferir nesta rodada:
 - Só os de status proximo, andamento, revisao ou bloqueado (ignore ideia, feito e arquivado).
 - Ordem: primeiro os que não têm "**Conferido:**" na seção Para você, depois os conferidos há mais tempo. Pule os conferidos hoje.
@@ -56,10 +58,16 @@ ${investigador().replace('Em ~/planos, edite só os plano.md', `Em ${root}, edit
 
 Depois de conferir:
 1. Tarefas do dia: o que ${nome()} deve fazer hoje vai para \`${root}/tarefas/AAAA-MM-DD.md\` (data de hoje). O app mostra esse arquivo no topo da aba Hoje, com checkbox.
-   - Se o arquivo de hoje não existe, crie com \`# Tarefas de <dia da semana>, DD/MM\` e uma linha em branco. Traga do arquivo mais recente de \`tarefas/\` as linhas ainda não marcadas cujo item continua não marcado em "Precisa de você" do plano (as outras ficaram velhas: não traga).
-   - Escolha até 5 itens de "Precisa de você" dos planos ativos (os desta rodada e os já conferidos), os que mais destravam o trabalho hoje: primeiro o que trava a IA (Aprovar, Decidir, Acesso), depois Testar no app, Cobrar e Mensagem. Pule o que já está no arquivo (mesmo plano e mesmo texto) e o que já está marcado.
+   A lista do dia mostra o que mudou e o que dá para resolver hoje. Ela não é o estoque de pendências: lista curta e nova vale mais que lista cheia.
+   - Se o arquivo de hoje não existe, crie com \`# Tarefas de <dia da semana>, DD/MM\` e uma linha em branco. Do arquivo mais recente de \`tarefas/\`, traga as linhas ainda não marcadas cujo item continua não marcado em "Precisa de você" do plano, junto com as linhas de recuo logo abaixo (Conferido, Adiado). As outras ficaram velhas: não traga.
+   - Adiadas: uma tarefa com a linha \`  - Adiado até AAAA-MM-DD\` abaixo dela foi adiada ${deNome().replace(/^de /, 'por ')}. Traga-a sempre com essa linha, sem mexer, e não crie outra tarefa do mesmo plano sobre o mesmo assunto enquanto a data não chegar. Ela não conta no teto.
+   - Paradas: se uma tarefa aberta (sem Adiado) já apareceu em 3 arquivos de dias diferentes e nada mudou no assunto (mesmo estado do PR, sem resposta nova), não a repita como está: acrescente abaixo dela \`  - Adiado até <a próxima segunda-feira> · parada há N dias\`. Ela volta sozinha na segunda, numa revisão só.
+   - Novas: escolha no máximo 5 itens de "Precisa de você" dos planos ativos, e só os que são novos ou mudaram desde ontem (PR mergeado, resposta que chegou, prazo que encostou, bloqueio que saiu). Ordem: primeiro o que trava a IA (Aprovar, Decidir, Acesso), depois Testar no app, Cobrar e Mensagem. Se nada mudou, não acrescente nada: uma lista com 3 tarefas é um bom resultado.
+   - Teto: no máximo 7 tarefas abertas sem Adiado no arquivo. Se passar, adie as mais antigas para a próxima segunda, como as paradas.
+   - Não entra: item vago ou que aponta para outro lugar ("as decisões em aberto abaixo"); "Decidir" que depende de outra pessoa (isso é Cobrar ou Mensagem); decisão já tomada; e um segundo item sobre o mesmo PR, bug ou decisão que já está no arquivo por outro plano (um assunto, uma tarefa: fica a do plano principal). Se o item do plano tem um desses problemas, corrija-o primeiro no "Precisa de você" do plano e use o texto corrigido.
+   - Pule o que já está no arquivo (mesmo plano e mesmo texto) e o que já está marcado.
    - Uma linha por item, com o texto exatamente igual ao do plano, tipo incluído, e o id do cabeçalho do plano: \`- [ ] Aprovar: fazer merge de acme/api#14 <!-- plano: api-auditoria -->\`. O texto igual é o que liga as duas listas: marcar a tarefa marca o item no plano.
-   - Nunca desmarque nem apague linhas que já estão no arquivo; na rodada da tarde, só acrescente.
+   - Nunca desmarque nem apague linhas que já estão no arquivo, nem as linhas Adiado; na rodada da tarde, só acrescente (tarefas novas ou a linha Adiado das paradas).
 2. Commit único: \`git -C ${root} add -A && git -C ${root} commit -m "investigador: N planos conferidos"\` (só se houve mudança). Se houver remoto configurado, \`git -C ${root} push\`.
 3. Atualize a lista do dia: \`${PLANOS} hoje --escrever --silencioso\`.
 4. Responda com no máximo 8 linhas: quantos planos conferiu, fases que marcou como feitas (com a evidência) e quantas tarefas do dia você acrescentou. Não repita a lista de tarefas (ela está no app). Se algum repositório não foi encontrado ou o gh falhou, diga qual.`,

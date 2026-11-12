@@ -14,7 +14,7 @@ import { buildToday, isOpen } from '../src/lib/score'
 import { daysUntil, dueLabel, todayISO } from '../src/lib/dates'
 import { chatPrompt, planPrompt, projectPrompt } from '../src/lib/prompt'
 import { nome as nomeUsuario, setUsuario } from '../src/lib/usuario'
-import { dfLocale, isEn, setLang, t } from '../src/lib/i18n'
+import { dfLocale, idiomaRegra, isEn, setLang, t } from '../src/lib/i18n'
 import { rotina, ROTINAS } from '../src/lib/rotinas'
 import { DISCORD_FILE, KEYCHAIN_SERVICE, parseCanais } from '../src/lib/discord'
 import { hojeMarkdown, semanaMarkdown } from '../src/lib/digest'
@@ -981,6 +981,100 @@ function cmdResumo() {
   console.log(resumoPrompt({ root: ROOT, date, diaLabel, fatos: fatos.join('\n'), metricas, anteriores }))
 }
 
+/**
+ * Atividade fora do app: sessões recentes do app do Claude (só os dados de capa: título, pasta, branches e PRs;
+ * a conversa não é lida) e PRs abertos ou mergeados no GitHub. Cada item sai marcado com o plano que já o cita,
+ * ou "sem plano", seguido do pedido para a IA registrar nos planos o que andou.
+ */
+function cmdAtividade() {
+  const s = load()
+  const dias = Math.max(1, Math.min(14, Number(flag('dias') ?? 2) || 2))
+  const desde = Date.now() - dias * 86_400_000
+  const til = (p: string) => (p.startsWith(HOME) ? '~' + p.slice(HOME.length) : p)
+  const ativos = s.plans.filter((p) => p.fm.status !== 'arquivado')
+  const planosDe = (o: { prs?: { repo: string; n: number }[]; cwd?: string; branches?: string[] }) => {
+    const hit = ativos.filter((p) => {
+      const wt = p.fm.worktree ? expand(p.fm.worktree) : ''
+      if (o.cwd && wt && (o.cwd === wt || o.cwd.startsWith(wt + '/'))) return true
+      if (o.cwd && o.cwd.startsWith(join(ROOT, dirname(p.path)))) return true
+      if (o.prs?.some((x) => new RegExp(`#${x.n}\\b`).test(p.raw) && p.raw.toLowerCase().includes(x.repo.split('/').pop()!.toLowerCase()))) return true
+      return !!o.branches?.some((b) => b.length > 6 && !/^(main|master|develop)$/.test(b) && p.raw.includes(b))
+    })
+    return hit.length ? `→ ${t('plano', 'plan')} ${hit.slice(0, 3).map((p) => p.fm.id).join(', ')}` : `→ ${t('SEM PLANO', 'NO PLAN')}`
+  }
+
+  type Sess = { title?: string; cwd?: string; lastActivityAt?: number; completedTurns?: number; scheduledTaskId?: string; isArchived?: boolean; writtenBranches?: string[]; prs?: { prNumber: number; repo: string; state?: string }[]; turnWrapUp?: { recap?: string } | null }
+  const base = join(HOME, 'Library/Application Support/Claude/claude-code-sessions')
+  const sess: Sess[] = []
+  for (const a of existsSync(base) ? readdirSync(base) : []) {
+    for (const o of statSync(join(base, a)).isDirectory() ? readdirSync(join(base, a)) : []) {
+      const dir = join(base, a, o)
+      if (!statSync(dir).isDirectory()) continue
+      for (const f of readdirSync(dir)) {
+        if (!f.startsWith('local_') || !f.endsWith('.json') || statSync(join(dir, f)).mtimeMs < desde) continue
+        try {
+          const d = JSON.parse(readFileSync(join(dir, f), 'utf8')) as Sess
+          // rotinas agendadas e o Console do app (pasta dos planos) não são trabalho novo
+          if (d.scheduledTaskId || !d.completedTurns || !d.cwd || d.cwd === ROOT || (d.lastActivityAt ?? 0) < desde) continue
+          // o app grava "<pasta>, um byte nulo, <branch>": fica só o nome da branch
+          d.writtenBranches = [...new Set((d.writtenBranches ?? []).map((b) => b.split('\0').pop()!.trim()).filter(Boolean))]
+          sess.push(d)
+        } catch {
+          // arquivo de sessão ilegível: ignora
+        }
+      }
+    }
+  }
+  sess.sort((x, y) => (y.lastActivityAt ?? 0) - (x.lastActivityAt ?? 0))
+
+  const out: string[] = [t(`Atividade fora do app nos últimos ${dias} dias (${ROOT})`, `Activity outside the app in the last ${dias} days (${ROOT})`), '']
+  out.push(t(`## Sessões do Claude (${sess.length})`, `## Claude sessions (${sess.length})`))
+  for (const d of sess.slice(0, 60)) {
+    const prs = (d.prs ?? []).map((p) => ({ repo: p.repo, n: p.prNumber, state: p.state }))
+    const quando = format(new Date(d.lastActivityAt!), 'dd/MM HH:mm')
+    const extra = [
+      d.writtenBranches?.length ? `branch ${d.writtenBranches.slice(0, 3).join(', ')}` : '',
+      prs.length ? `PR ${prs.map((p) => `${p.repo}#${p.n}${p.state ? ` (${p.state})` : ''}`).join(', ')}` : '',
+      d.turnWrapUp?.recap ? `"${d.turnWrapUp.recap.replace(/\s+/g, ' ').slice(0, 220)}"` : '',
+    ].filter(Boolean)
+    out.push(`- [${quando}] "${d.title ?? t('sem título', 'untitled')}" · ${til(d.cwd!)}${extra.length ? ' · ' + extra.join(' · ') : ''} ${planosDe({ prs, cwd: d.cwd, branches: d.writtenBranches })}`)
+  }
+  if (!sess.length) out.push(t('(nenhuma)', '(none)'))
+
+  out.push('', t('## PRs seus no GitHub', '## Your PRs on GitHub'))
+  let nPr = 0
+  for (let i = 0; i < dias; i++) {
+    const date = todayISO(addDays(new Date(), -i))
+    const g = githubDoDia(date)
+    if (!g) {
+      out.push(t('(sem acesso ao GitHub: rode gh auth login)', '(no GitHub access: run gh auth login)'))
+      break
+    }
+    for (const [rotulo, lista] of [[t('aberto', 'opened'), g.abertos], [t("mergeado", "merged"), g.mergeados]] as const) {
+      for (const linha of lista) {
+        const m = linha.match(/^(\S+)#(\d+)/)
+        out.push(`- ${date} ${rotulo}: ${linha} ${m ? planosDe({ prs: [{ repo: m[1], n: Number(m[2]) }] }) : ''}`)
+        nPr++
+      }
+    }
+  }
+  if (!nPr) out.push(t('(nenhum)', '(none)'))
+
+  out.push(
+    '',
+    t('## O que fazer com isso', '## What to do with this'),
+    `O app só mostra o que está escrito em ${ROOT}. Registre nos planos o trabalho acima, para ${nomeUsuario()} ver o que andou sem ter de contar:`,
+    '1. Item com "→ plano <id>": confira no GitHub ou no repositório local o estado real (PR aberto, mergeado, commits na branch) e atualize aquele plano: linha no Log (`- AAAA-MM-DD: <o que foi feito>, PR dono/repo#n`), fase marcada só com evidência (PR mergeado ou commit na branch principal), "Como está" e "Precisa de você" reescritos. Se uma tarefa do dia ou um item de "Precisa de você" ficou resolvido por esse trabalho, marque [x] com a linha `  - Conferido AAAA-MM-DD · já feito: <evidência>`.',
+    `2. Item "→ SEM PLANO" que é trabalho de verdade (tem PR ou branch, ou são 2 ou mais sessões sobre o mesmo assunto): primeiro veja se é parte de um plano existente do mesmo projeto e, se for, registre lá como no passo 1. Se não for, crie um plano novo no padrão da skill planejamento, com status andamento (ou revisao, se o PR já está aberto esperando revisão), as fases já feitas marcadas com a evidência e as próximas em aberto. Descubra o projeto pela pasta ou pelo repositório; sem projeto claro, pergunte.`,
+    '3. Item "→ SEM PLANO" pequeno (uma sessão curta, sem PR nem branch: uma pergunta, um teste, um ajuste): não crie plano; ignore.',
+    '4. Não crie tarefa do dia para trabalho que já está andando sozinho: isto é registro do que foi feito, não pedido novo.',
+    'Só leitura nos repositórios de código. A conversa das sessões não é lida: use só o título, a pasta, as branches e os PRs acima, e o que o GitHub e o git mostram.',
+    `Ao terminar: \`git -C ${ROOT} add -A && git -C ${ROOT} commit -m "atividade: <N planos atualizados, M criados>"\` e diga em até 6 linhas o que mudou em cada plano.`,
+    idiomaRegra(),
+  )
+  console.log(out.join('\n'))
+}
+
 /** Rotinas do Letco: lista, ou imprime o texto de uma (é o prompt da tarefa agendada no app do Claude). */
 function cmdRotina() {
   load()
@@ -1019,6 +1113,7 @@ function help() {
     L(`${bold('planos agendar')} [--remover]         `, 'rotinas de dias úteis que gravam hoje.md e semana.md', 'weekday routines that write hoje.md and semana.md'),
     L(`${bold('planos discord --ler')} [--canal id]  `, 'lê as mensagens novas dos canais (token no Keychain) e imprime o pedido de extração', 'reads new channel messages (token in the Keychain) and prints the extraction request'),
     L(`${bold('planos divulgar --verificar')}        `, 'confere a branch de cada campanha (campanhas.yaml) e imprime o pedido de cada post a montar', 'checks the branch of each campaign (campanhas.yaml) and prints the request for each post to build'),
+    L(`${bold('planos atividade')} [--dias 2]       `, 'sessões do Claude e PRs recentes, com o plano de cada um (ou "sem plano") e o pedido para registrar', 'recent Claude sessions and PRs, with the plan each belongs to (or "no plan") and the request to record them'),
     L(`${bold('planos rotinas')}                     `, `lista as rotinas do Letco; ${bold('planos rotina')} <id> imprime o texto de uma`, `lists the Letco routines; ${bold('planos rotina')} <id> prints one`),
     L(`${bold('planos resumo')} ${t('[--data AAAA-MM-DD]    ', '[--data YYYY-MM-DD]    ')}`, 'junta os fatos do dia e imprime o pedido do resumo (--pronto <data>: commit e aviso no Mac)', "gathers the day's facts and prints the summary request (--pronto <date>: commit and Mac notification)"),
     L(`${bold('planos divulgar --pronto')} ${t('<pasta>   ', '<folder>  ')}`, 'post montado: vai para "Para postar" e avisa no Mac (--descartar <pasta> --motivo "…")', 'post built: moves to "To post" and notifies on the Mac (--descartar <folder> --motivo "…")'),
@@ -1032,6 +1127,7 @@ const commands: Record<string, () => void | Promise<void>> = {
   divulgar: cmdDivulgar,
   resumo: cmdResumo,
   rotina: cmdRotina,
+  atividade: cmdAtividade,
   rotinas: cmdRotina,
   hoje: cmdHoje,
   semana: cmdSemana,

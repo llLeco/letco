@@ -106,7 +106,11 @@ Contexto: no sistema ${deNome()}, quem implementa e revisa é IA (Claude, Codex)
    - Testar no app: só quando precisa do app LIVE/dispositivo real; diga onde e o que olhar.
    - Mensagem: sugira para quem e escreva o rascunho entre aspas, ${IDIOMA_REGRA} (ex. em inglês: "Sam, #807 is ready for review. Could you take a look today?"; em português: "Ana, o #71 está pronto para revisão. Consegue olhar hoje?"). O resto do item segue ${isEn() ? 'em inglês (o idioma do app)' : 'em português'}. Nunca envie.
    - Cobrar: quem está devendo o quê e desde quando; se sugerir a mensagem de cobrança, rascunho entre aspas no mesmo idioma do projeto.
-   - Decidir / Aprovar / Acesso / Arquivar: a escolha, a liberação, a credencial ou o plano obsoleto.
+   - Decidir: só para escolha que é ${deNome()} e que dá para fazer agora. Escreva na própria linha a pergunta, as opções e a sua recomendação (ex.: "Decidir: navegação do portal no celular: abas embaixo (recomendo, é o padrão do app) ou menu lateral"). Nunca aponte para outra seção ("as decisões em aberto abaixo"): uma decisão por item. Se a escolha depende de outra pessoa (cliente, direção, outro dev), não é Decidir: é Mensagem ou Cobrar para essa pessoa, com o rascunho. Se já foi decidida (está no Log ou marcada em "Decisões em aberto"), não pergunte de novo: aplique-a.
+   - Aprovar / Acesso / Arquivar: a liberação, a credencial ou o plano obsoleto.
+   - Todo item tem de ser algo que ${nome()} consegue concluir sozinho, de uma vez, e que deixa claro quando está feito. Item vago ("ver o plano", "acompanhar", "alinhar") não entra.
+   - Um assunto, um item: se o mesmo PR, bug ou decisão aparece em mais de um plano, o item fica só no plano principal daquele assunto (o que tem as fases dele). Nos outros, cite em "Como está" ("depende do #807, acompanhado no plano <id>") e não repita o item.
+   - Não invente pendência para preencher: se desde o último Conferido nada mudou e nada novo depende ${deNome()}, mantenha os itens que continuam valendo como estão (mesmo texto) e não crie outros.
    - No máximo 3 itens, do mais importante para o menos. Se nada depende ${deNome()}, escreva \`**Precisa de você:** nada agora — <o que está andando sozinho>\`.
    - Mantenha os itens que ${nome()} já marcou com [x] só se ainda fizerem sentido; caso contrário, remova.
 6. Não mude \`atualizado\` só por reescrever "Para você" (isso esconderia planos parados). Mude só quando marcar fase ou mudar status.
@@ -242,7 +246,7 @@ Tudo vive em ${root} (Markdown + git). O app relê os arquivos na hora em que mu
 - hoje.md e semana.md: gerados pelo comando planos; não edite à mão.
 - .indice/: fora do git (conversas brutas, estado das leituras).
 
-Comando de terminal \`planos\` (~/.local/bin/planos): \`planos hoje --escrever\`, \`planos ls [projeto]\`, \`planos ver <id>\`, \`planos novo <projeto> "título"\`, \`planos status <id> <status>\`, \`planos prazo <id> <data>\`, \`planos fase concluir <id> [F3]\`, \`planos arquivar <id>\`, \`planos discord --ler\` (lê as mensagens novas e imprime o pedido de extração: siga-o). Prefira o comando quando ele faz o que foi pedido; ele já faz o commit.
+Comando de terminal \`planos\` (~/.local/bin/planos): \`planos hoje --escrever\`, \`planos ls [projeto]\`, \`planos ver <id>\`, \`planos novo <projeto> "título"\`, \`planos status <id> <status>\`, \`planos prazo <id> <data>\`, \`planos fase concluir <id> [F3]\`, \`planos arquivar <id>\`, \`planos discord --ler\` (lê as mensagens novas e imprime o pedido de extração: siga-o), \`planos atividade\` (sessões do Claude e PRs recentes que ainda não estão nos planos, com o pedido para registrar: siga-o). Prefira o comando quando ele faz o que foi pedido; ele já faz o commit.
 Rotinas agendadas do Claude: planos-investigador (confere planos no GitHub), planos-lista-do-dia, planos-discord, planos-divulgacao, planos-resumo-do-dia (19h: \`planos resumo\` escreve resumos/AAAA-MM-DD.md). As instruções ficam em ~/.claude/scheduled-tasks/<id>/SKILL.md.
 
 Regras:

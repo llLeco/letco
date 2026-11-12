@@ -151,7 +151,7 @@ export async function mockApi(cmd: string, args: Record<string, unknown> = {}): 
         discord: !exemplo ? null : "canais:\n  - id: '100000000001111111'\n    nome: dev_channel\n    projeto: acme\n  - id: '100000000002222222'\n    nome: Nico_DMs\n    projeto: orbit\n",
         tarefas: !exemplo ? null : [
           `${new Date().toISOString().slice(0, 10)}.md`,
-          [
+          files.get(`tarefas/${new Date().toISOString().slice(0, 10)}.md`) ?? [
             '# Tarefas do dia',
             '',
             '- [ ] Aprovar: merge PR #806 (CI green, no conflicts, only waiting on you) <!-- plano: acme-developer-portal -->',

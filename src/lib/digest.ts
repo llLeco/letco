@@ -5,7 +5,7 @@ import { daysUntil, dueLabel, parseDay, todayISO } from './dates'
 import { ASK_LABEL, nextPhase, phaseLabel, progress, sections, normalize } from './plan'
 import { buildToday, isOpen, staleDays } from './score'
 import { CONTEXT_LABEL, orderedSlugs } from './config'
-import { askKey, matchingAsk, sortTarefas, tarefaKeys, type TarefasDia } from './tarefas'
+import { askKey, isAdiada, matchingAsk, sortTarefas, tarefaKeys, type TarefasDia } from './tarefas'
 import { dfLocale, isEn, t } from './i18n'
 
 /**
@@ -90,7 +90,7 @@ export function hojeMarkdown(plans: Plan[], projects: ProjectInfo[], cfg: Config
   if (tarefas) {
     const byId = new Map(plans.map((p) => [p.fm.id, p]))
     const pending = sortTarefas(
-      tarefas.items.filter((i) => !i.done && !matchingAsk(byId.get(i.planId ?? ''), i)?.done),
+      tarefas.items.filter((i) => !i.done && !isAdiada(i, now) && !matchingAsk(byId.get(i.planId ?? ''), i)?.done),
       plans,
       cfg,
       ctx,

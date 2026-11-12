@@ -1,6 +1,7 @@
 import type { Ask, Config, ContextKey, Plan } from './types'
 import { orderedSlugs } from './config'
-import { conferidoAfter, type Conferido } from './conferido'
+import { parseConferido, type Conferido } from './conferido'
+import { todayISO } from './dates'
 import { askOf, normalize } from './plan'
 
 /**
@@ -17,6 +18,8 @@ export interface Tarefa extends Ask {
   planId?: string
   /** o que o revisor achou no GitHub e nos clones: já feito, em parte ou ainda pendente */
   conferido?: Conferido
+  /** adiada: só volta para a lista quando a data chegar */
+  adiado?: { ate: string; motivo?: string }
 }
 
 export interface TarefasDia {
@@ -29,6 +32,36 @@ export interface TarefasDia {
 
 const LINE_RE = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/
 // o comentário pode vir no fim ou antes do link da mensagem
+/** `  - Adiado até AAAA-MM-DD · motivo`, logo abaixo da tarefa (depois das linhas Conferido) */
+const ADIADO_RE = /^\s+[-*]\s+Adiado\s+at[eé]\s+(\d{4}-\d{2}-\d{2})\s*(?:[·:—-]\s*(.*))?$/i
+const SUB_RE = /^\s+[-*]\s+/
+
+/** linhas de recuo logo abaixo da tarefa: a conferência mais recente e o adiamento, se houver */
+function subLines(lines: string[], line: number) {
+  let conferido: Conferido | undefined
+  let adiado: Tarefa['adiado']
+  let end = line + 1
+  for (; end < lines.length && SUB_RE.test(lines[end]); end++) {
+    const c = parseConferido(lines[end])
+    if (c && (!conferido || c.date >= conferido.date)) conferido = c
+    const a = lines[end].match(ADIADO_RE)
+    if (a) adiado = { ate: a[1], motivo: a[2]?.trim() || undefined }
+  }
+  return { conferido, adiado, end }
+}
+
+/** a tarefa está adiada hoje? (aberta, com data de volta no futuro) */
+export const isAdiada = (t: Tarefa, now = new Date()) => !t.done && !!t.adiado && t.adiado.ate > todayISO(now)
+
+/** adia a tarefa da linha até a data (ou tira o adiamento, com `ate` nulo) */
+export function setAdiado(raw: string, line: number, ate: string | null, motivo?: string) {
+  const lines = raw.split('\n')
+  const { end } = subLines(lines, line)
+  const kept = lines.slice(line + 1, end).filter((l) => !ADIADO_RE.test(l))
+  const novo = ate ? [`  - Adiado até ${ate}${motivo ? ` · ${motivo}` : ''}`] : []
+  return [...lines.slice(0, line + 1), ...kept, ...novo, ...lines.slice(end)].join('\n')
+}
+
 const PLAN_RE = /\s*<!--\s*plano:\s*([^\s>]+)\s*-->\s*/
 
 export function parseTarefas(file: string, raw: string): TarefasDia {
@@ -40,7 +73,8 @@ export function parseTarefas(file: string, raw: string): TarefasDia {
     const planId = m[2].match(PLAN_RE)?.[1]
     const text = m[2].replace(PLAN_RE, ' ').trim()
     if (!text) return
-    items.push({ ...askOf({ text, done: m[1] !== ' ', line }), planId, conferido: conferidoAfter(lines, line) })
+    const { conferido, adiado } = subLines(lines, line)
+    items.push({ ...askOf({ text, done: m[1] !== ' ', line }), planId, conferido, adiado })
   })
   return { file, date: file.replace(/\.md$/, ''), raw, items }
 }

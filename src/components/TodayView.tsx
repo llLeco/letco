@@ -1,19 +1,19 @@
 import { useMemo, useState } from 'react'
-import { format } from 'date-fns'
-import { AlarmClock, Bot, ChevronDown, CircleDot, Coffee, Hourglass, Inbox, ListTodo, MessagesSquare, Scale, Sparkles } from 'lucide-react'
+import { addDays, format } from 'date-fns'
+import { AlarmClock, AlarmClockOff, Bot, ChevronDown, Clock, CircleDot, Coffee, Hourglass, Inbox, ListTodo, MessagesSquare, Scale, Sparkles } from 'lucide-react'
 import { useStore } from '../store'
 import { useNow, useToday } from '../hooks'
 import { longDate, parseDay, todayISO } from '../lib/dates'
-import { askKey, matchingAsk, parseTarefas, sortTarefas, tarefaKeys, type Tarefa } from '../lib/tarefas'
+import { askKey, isAdiada, matchingAsk, parseTarefas, sortTarefas, tarefaKeys, type Tarefa } from '../lib/tarefas'
 import { CONTEXT_LABEL } from '../lib/config'
 import { toggleLine } from '../lib/plan'
-import { t } from '../lib/i18n'
+import { t, t as tr } from '../lib/i18n'
 import type { Ask, CheckItem, Plan } from '../lib/types'
 import { AskAction, AskChip } from './ParaVoce'
 import { ConferidoBadge, ItemDetailDialog } from './Conferido'
 import { discordRef, parseCanais } from '../lib/discord'
 import { PlanRow } from './PlanRow'
-import { Button, cn, Empty, ProjectChip, SectionTitle } from './ui'
+import { Button, cn, Empty, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger, ProjectChip, SectionTitle } from './ui'
 import { Markdown } from './Markdown'
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -91,7 +91,45 @@ function AskRow({ plan, item }: { plan: Plan; item: Ask }) {
   )
 }
 
+/** Adiar: a tarefa sai da lista e volta sozinha na data escolhida */
+function AdiarMenu({ tarefa }: { tarefa: Tarefa }) {
+  const adiar = useStore((s) => s.adiarTarefa)
+  const now = new Date()
+  const iso = (n: number) => todayISO(addDays(now, n))
+  const dow = now.getDay() === 0 ? 7 : now.getDay()
+  const opts: [string, number][] = [
+    [t('Amanhã', 'Tomorrow'), 1],
+    [t('Segunda-feira', 'Monday'), 8 - dow],
+    [t('Daqui a 1 semana', 'In 1 week'), 7],
+    [t('Daqui a 1 mês', 'In 1 month'), 30],
+  ]
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <button
+          aria-label={t('Adiar', 'Postpone')}
+          title={t('Adiar: sai da lista e volta na data', 'Postpone: leaves the list and comes back on the date')}
+          onClick={(e) => e.stopPropagation()}
+          className="hidden h-7 w-7 flex-none items-center justify-center rounded-[7px] text-[var(--text-3)] hover:bg-[var(--bg-active)] hover:text-[var(--text)] group-hover:flex data-[state=open]:flex"
+        >
+          <Clock size={14} />
+        </button>
+      </MenuTrigger>
+      <MenuContent align="end">
+        <MenuLabel>{t('Adiar até', 'Postpone until')}</MenuLabel>
+        {opts.map(([label, n]) => (
+          <MenuItem key={label} onSelect={() => adiar(tarefa, iso(n))}>
+            {label} <span className="ml-auto pl-4 text-[var(--text-3)]">{format(addDays(now, n), 'dd/MM')}</span>
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  )
+}
+
 function TarefaRow({ t }: { t: Tarefa }) {
+  const adiar = useStore((s) => s.adiarTarefa)
+  const adiada = isAdiada(t)
   const go = useStore((s) => s.go)
   const toggle = useStore((s) => s.toggleTarefa)
   const plan = useStore((s) => (t.planId ? s.plans.find((p) => p.fm.id === t.planId) : undefined))
@@ -129,7 +167,7 @@ function TarefaRow({ t }: { t: Tarefa }) {
               <Markdown inline plan={plan}>{t.label}</Markdown>
             </span>
           </div>
-          {(plan || conf) && (
+          {(plan || conf || adiada) && (
             <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12px] text-[var(--text-3)]">
               {plan && (
                 <button
@@ -143,10 +181,29 @@ function TarefaRow({ t }: { t: Tarefa }) {
                 </button>
               )}
               {conf && <ConferidoBadge c={conf} />}
+              {adiada && (
+                <span className="flex-none text-amber-600 dark:text-amber-400">
+                  {tr(`adiada até ${format(parseDay(t.adiado!.ate) ?? new Date(), 'dd/MM')}`, `postponed until ${format(parseDay(t.adiado!.ate) ?? new Date(), 'MM/dd')}`)}
+                  {t.adiado!.motivo ? ` · ${t.adiado!.motivo}` : ''}
+                </span>
+              )}
             </div>
           )}
         </div>
-        {plan && !t.done && <AskAction plan={plan} ask={t} tarefaFile={tarefaFile} />}
+        {adiada ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              adiar(t, null)
+            }}
+            className="flex h-7 flex-none items-center gap-1.5 rounded-[7px] px-2 text-[12.5px] text-[var(--text-2)] hover:bg-[var(--bg-active)] hover:text-[var(--text)]"
+          >
+            <AlarmClockOff size={13} /> {tr('Trazer de volta', 'Bring back')}
+          </button>
+        ) : (
+          !t.done && <AdiarMenu tarefa={t} />
+        )}
+        {plan && !t.done && !adiada && <AskAction plan={plan} ask={t} tarefaFile={tarefaFile} />}
         {project && <ProjectChip name={project.nome} color={project.cor} />}
       </div>
       <ItemDetailDialog
@@ -212,7 +269,10 @@ export function TodayView() {
   const tarefasHoje = tarefas?.date === todayISO(now)
   const config = useStore((s) => s.config)
   const tarefaItems = tarefas ? sortTarefas(tarefasHoje ? tarefas.items : tarefas.items.filter((i) => !i.done), plans, config, ctx) : []
-  const tarefasPending = tarefaItems.filter((i) => !i.done).length
+  const adiadas = tarefaItems.filter((i) => isAdiada(i, now))
+  const tarefasAtivas = tarefaItems.filter((i) => !isAdiada(i, now))
+  const [verAdiadas, setVerAdiadas] = useState(false)
+  const tarefasPending = tarefasAtivas.filter((i) => !i.done).length
   const inTarefas = useMemo(() => tarefaKeys(tarefas), [tarefas])
   const asks = today.asks.filter((a) => !inTarefas.has(askKey(a.plan, a.item)))
 
@@ -322,9 +382,22 @@ export function TodayView() {
                 : t(`Ficaram de ${format(parseDay(tarefas!.date) ?? now, 'dd/MM')}`, `Left over from ${format(parseDay(tarefas!.date) ?? now, 'MM/dd')}`)}
             </SectionTitle>
             <Card>
-              {tarefaItems.map((t) => (
+              {tarefasAtivas.map((t) => (
                 <TarefaRow key={t.line} t={t} />
               ))}
+              {!tarefasAtivas.length && <div className="px-2 py-2.5 text-[13px] text-[var(--text-3)]">{t('Nada para hoje: o resto está adiado.', 'Nothing for today: the rest is postponed.')}</div>}
+              {adiadas.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setVerAdiadas(!verAdiadas)}
+                    className="flex h-8 w-full items-center gap-1.5 rounded-[8px] px-2 text-[12.5px] text-[var(--text-3)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-2)]"
+                  >
+                    <ChevronDown size={14} className={cn('transition-transform', verAdiadas && 'rotate-180')} />
+                    {t(`${adiadas.length} ${adiadas.length === 1 ? 'adiada' : 'adiadas'}`, `${adiadas.length} postponed`)}
+                  </button>
+                  {verAdiadas && adiadas.map((t) => <TarefaRow key={t.line} t={t} />)}
+                </>
+              )}
             </Card>
           </div>
         )}
@@ -348,7 +421,7 @@ export function TodayView() {
               {tarefaItems.length ? t('Outras pendências nos planos', 'Other open items in plans') : t('Precisa de você', 'Needs you')}
             </SectionTitle>
             <Card>
-              <Collapsible items={asks} limit={tarefaItems.length ? 4 : 8} render={(a) => <AskRow key={a.plan.path + a.item.line} plan={a.plan} item={a.item} />} />
+              <Collapsible items={asks} limit={tarefaItems.length ? 0 : 8} render={(a) => <AskRow key={a.plan.path + a.item.line} plan={a.plan} item={a.item} />} />
             </Card>
           </div>
         )}
