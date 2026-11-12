@@ -58,3 +58,21 @@ describe('posts', () => {
     expect(parsePost(raw('')).ambiente).toBeUndefined()
   })
 })
+
+describe('categoria do PR', () => {
+  it('todo PR cai numa categoria: novidade, correção ou manutenção', async () => {
+    const { categoriaDe } = await import('./divulgar')
+    const c = (title: string, files: string[] = ['src/a.ts']) => categoriaDe({ title, files })
+    expect(c('feat(pools): create your own pool')).toBe('novidade')
+    expect(c('fix(bridge): fee shown twice')).toBe('correcao')
+    expect(c('perf: faster token list')).toBe('correcao')
+    expect(c('chore(deps): bump sdk')).toBe('manutencao')
+    expect(c('Merge master into develop')).toBe('manutencao')
+    expect(c('Develop')).toBe('manutencao')
+    expect(c("Bring master's production hotfixes into develop")).toBe('manutencao')
+    expect(c('feat: bring your own token into pools')).toBe('novidade')
+    expect(c('Update docs', ['docs/a.md', 'README.md'])).toBe('manutencao')
+    expect(c('Fixes the modal on mobile')).toBe('correcao')
+    expect(c('Token search by id')).toBe('novidade')
+  })
+})

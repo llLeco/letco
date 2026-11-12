@@ -1,6 +1,9 @@
 import { dump } from 'js-yaml'
 import { splitFrontmatter } from './plan'
 import { t } from './i18n'
+import { CATEGORIAS, type Categoria } from './divulgar'
+
+export const categoriaLabel = (c: Categoria) => ({ novidade: t('Novidade', 'New'), correcao: t('Correções', 'Fixes'), manutencao: t('Manutenção', 'Maintenance') })[c]
 
 /**
  * Posts de divulgação: ~/planos/divulgacao/<campanha>/<AAAA-MM-DD>-<sha7>/
@@ -26,6 +29,8 @@ export interface Post extends PostRaw {
   titulo: string
   status: PostStatus
   postadoEm?: string
+  /** novidade, correção ou manutenção (post antigo, sem o campo, conta como novidade) */
+  categoria: Categoria
   /** onde a novidade está: só na branch acompanhada (develop) ou já na de produção; vazio se ainda não foi conferido */
   ambiente?: 'develop' | 'producao'
   /** data em que a verificação viu a novidade na branch de produção */
@@ -52,6 +57,7 @@ export function parsePost(raw: PostRaw): Post {
     ...raw,
     titulo: String(data.titulo ?? raw.folder),
     status,
+    categoria: CATEGORIAS.find((k) => k === data.categoria) ?? 'novidade',
     postadoEm: data.postado_em ? String(data.postado_em) : undefined,
     ambiente: data.ambiente === 'producao' || data.ambiente === 'develop' ? data.ambiente : undefined,
     emProducao: data.em_producao ? String(data.em_producao).slice(0, 10) : undefined,

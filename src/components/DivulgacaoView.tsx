@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { parseDay, todayISO } from '../lib/dates'
 import { dfLocale, isEn, t } from '../lib/i18n'
-import { campaignLabel, parsePost, withStatus, type Post, type PostStatus } from '../lib/posts'
+import { campaignLabel, categoriaLabel, parsePost, withStatus, type Post, type PostStatus } from '../lib/posts'
 import { CAMPANHAS_FILE, DIVULGAR_STATE_DIR, divulgarConsolePrompt, parseCampanhas } from '../lib/divulgar'
 import { commitOrWarn, useStore } from '../store'
 import { Button, cn, Empty, IconButton, SectionTitle } from './ui'
@@ -54,6 +54,12 @@ function Ambiente({ post, small }: { post: Post; small?: boolean }) {
   )
 }
 
+/** categoria do post: novidade, correções ou manutenção */
+function CategoriaChip({ post }: { post: Post }) {
+  const cls = { novidade: 'bg-accent-soft text-accent', correcao: 'bg-sky-500/12 text-sky-700 dark:text-sky-400', manutencao: 'bg-[var(--bg-hover)] text-[var(--text-2)]' }[post.categoria]
+  return <span className={cn('inline-flex flex-none items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium', cls)}>{categoriaLabel(post.categoria)}</span>
+}
+
 function PostCard({ post, onStatus, nomes }: { post: Post; onStatus: (p: Post, s: PostStatus) => void; nomes?: Record<string, string> }) {
   const src = useImage(post.image)
   const [lang, setLang] = useState(() => {
@@ -95,6 +101,7 @@ function PostCard({ post, onStatus, nomes }: { post: Post; onStatus: (p: Post, s
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[14px] font-semibold leading-snug">{post.titulo}</span>
+              <CategoriaChip post={post} />
               <Ambiente post={post} />
             </div>
             <div className="mt-0.5 text-[12px] text-[var(--text-3)]">
@@ -198,10 +205,10 @@ function DoneRow({ post, onStatus }: { post: Post; onStatus: (p: Post, s: PostSt
 function GeneratingRow({ post }: { post: Post }) {
   return (
     <div className="flex h-11 items-center gap-3 rounded-[8px] px-2">
-      <LoaderCircle size={14} className="flex-none animate-spin text-accent" />
+      <LoaderCircle size={14} className="flex-none text-[var(--text-3)]" />
       <span className="min-w-0 flex-1 truncate text-[13px]">
         {post.titulo}
-        <span className="text-[var(--text-3)]"> · {t('montando imagem e texto', 'putting together image and text')}</span>
+        <span className="text-[var(--text-3)]"> · {t('na fila: a rotina monta imagem e texto na próxima rodada', 'queued: the routine builds image and text on its next run')}</span>
       </span>
       <IconButton label={t('Abrir pasta', 'Open folder')} onClick={() => api.openPath(post.dir, true)}>
         <FolderOpen size={13} />
@@ -310,7 +317,7 @@ export function DivulgacaoView() {
         {!!generating.length && (
           <div>
             <SectionTitle icon={<LoaderCircle size={14} className="text-accent" />} count={generating.length}>
-              {t('Montando', 'In progress')}
+              {t('Na fila', 'Queued')}
             </SectionTitle>
             <Card className="p-1.5">
               {generating.map((p) => (

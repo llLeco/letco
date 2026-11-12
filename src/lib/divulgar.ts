@@ -68,6 +68,22 @@ export function ruido(pr: Pick<PrInfo, 'title' | 'files'>): string | null {
   return null
 }
 
+/** todo PR vira post; a categoria decide o tom e a forma: novidade (feat), correção (fix) ou manutenção (o resto) */
+export type Categoria = 'novidade' | 'correcao' | 'manutencao'
+export const CATEGORIAS: Categoria[] = ['novidade', 'correcao', 'manutencao']
+
+export function categoriaDe(pr: Pick<PrInfo, 'title' | 'files'>): Categoria {
+  const t = pr.title.trim()
+  if (/^(fix|hotfix|perf|bugfix)(\([^)]*\))?!?:/i.test(t)) return 'correcao'
+  if (/^feat(ure)?(\([^)]*\))?!?:/i.test(t)) return 'novidade'
+  // merge entre branches e release ("Develop", "Merge master into develop", "Bring master's hotfixes into develop") é bastidor
+  if (ruido(pr) || /^merge\b/i.test(t) || /^(develop|master|main|staging|release)\b/i.test(t) || /\b(into|to|->|→)\s+(develop|master|main|staging|production)\b/i.test(t)) return 'manutencao'
+  return /\bfix(es|ed)?\b|\bbug\b|corrig/i.test(t) ? 'correcao' : 'novidade'
+}
+
+/** sufixo da pasta do post de cada categoria (a novidade fica na pasta sem sufixo) */
+export const CATEGORIA_SUFIXO: Record<Categoria, string> = { novidade: '', correcao: '-correcoes', manutencao: '-manutencao' }
+
 export function prMarkdown(c: Campanha, prs: PrInfo[]) {
   return [
     `# Novidades na ${c.branch} de ${c.repo}`,
@@ -86,7 +102,25 @@ export function prMarkdown(c: Campanha, prs: PrInfo[]) {
 }
 
 /** Pedido para o agente montar um post (imprime o comando, segue a rotina ou o Console). */
-export function gerarPostPrompt(o: { root: string; c: Campanha; pasta: string; today: string; anterior?: string; idioma?: Idioma }) {
+export function gerarPostPrompt(o: { root: string; c: Campanha; pasta: string; today: string; anterior?: string; idioma?: Idioma; categoria?: Categoria }) {
+  const cat = o.categoria ?? 'novidade'
+  const forma: Record<Categoria, string[]> = {
+    novidade: [
+      'Categoria: NOVIDADE. É um anúncio de produto: o que o usuário passa a poder fazer.',
+      '- Imagem: o screenshot real da tela nova é o centro; título e subtítulo curtos.',
+      '- Legenda: até 600 caracteres, 2 ou 3 bullets do que muda para o usuário.',
+    ],
+    correcao: [
+      'Categoria: CORREÇÕES. É um resumo do que foi consertado ou melhorado, uma linha por PR, na linguagem de quem usa (o que estava errado e como ficou), sem culpa e sem jargão.',
+      '- Imagem: um cartão nas cores da marca com título do tipo "Fixes & improvements" e a lista curta das correções (até 6 linhas; junte as parecidas). Se alguma correção aparece na tela, use o screenshot real dela ao lado; se nenhuma aparece, o cartão vai só com logo, título e lista, sem screenshot.',
+      '- Legenda: até 600 caracteres, um bullet por correção (junte as parecidas), começando pelo que o usuário mais sente.',
+    ],
+    manutencao: [
+      'Categoria: MANUTENÇÃO. São PRs de bastidor (dependências, CI, docs, testes, refactor, merges entre branches, release). O post é curto e honesto: o que foi cuidado, em palavras simples, sem detalhe interno.',
+      '- Imagem: um cartão simples nas cores da marca, com logo, um título do tipo "Under the hood" e 2 a 4 linhas. Sem screenshot.',
+      '- Legenda: até 300 caracteres. Não transforme manutenção em novidade: nada de "novo recurso". Um merge de release só é citado como "já no ar" se o pr.md mostrar que chegou à branch de produção.',
+    ],
+  }
   const dir = `${o.root}/divulgacao/${o.pasta}`
   const tools = `${o.root}/divulgacao/ferramentas`
   const clone = o.c.clone ?? `(sem clone local de ${o.c.repo}: use \`gh api\` para ler arquivos)`
@@ -97,15 +131,16 @@ export function gerarPostPrompt(o: { root: string; c: Campanha; pasta: string; t
     'Regras desta campanha:',
     o.c.regras,
     '',
-    '1. Decida se vale post. Se nenhum PR muda algo que o usuário perceba, rode',
-    `   \`planos divulgar --descartar ${o.pasta} --motivo "<por quê, em 1 linha>"\` e pare aqui.`,
+    ...forma[cat],
+    '',
+    '1. Este post cobre todos os PRs do pr.md, sem exceção: não descarte o post e não deixe PR de fora (PRs parecidos podem dividir uma linha). Regra de campanha que diga que algo "não vira post" não vale mais; as que dizem o que não mencionar continuam valendo.',
     `2. Imagem com material real, seguindo ${tools}/README.md (primeira vez: \`npm install\` nessa pasta):`,
     `   - clone local: ${clone}. Atualize só com \`git fetch origin ${o.c.branch}\` e leia com \`git show origin/${o.c.branch}:<caminho>\`, sem trocar a branch nem mexer nos arquivos do clone. Se precisar rodar o app local, use um worktree temporário da origin/${o.c.branch} no seu diretório temporário e remova-o (\`git worktree remove\`) ao terminar.`,
-    `   - em ${dir}/ref/: o screenshot real da tela que o PR mudou, o logo e os ícones reais.`,
+    `   - em ${dir}/ref/: o logo e os ícones reais e, quando a categoria pede, o screenshot real da tela que o PR mudou.`,
     `   - ${dir}/template.html (1600×900) com título e subtítulo curtos escritos por você, o screenshot, o logo e os ícones, nas cores da marca${o.anterior ? `; use ${o.root}/${o.anterior}/template.html como referência de layout` : ''}.`,
     `   - render: \`node ${tools}/render.mjs ${dir}/template.html ${dir}/imagem.png\`. Abra a imagem e confira: texto sem erro, nada cortado, nada inventado.`,
     '   - O gerador de imagem só entra para um fundo sem texto, se precisar. Avisos e termos de sites nunca são aceitos: só escondidos na cópia da página (--esconder).',
-    `3. ${dir}/legenda.md com uma única seção \`## EN\`: o texto do post ${emIdioma(o.idioma)}, até 600 caracteres, tom de anúncio de produto, 2 ou 3 bullets do que muda para o usuário, sem excesso de hashtags.`,
+    `3. ${dir}/legenda.md com uma única seção \`## EN\`: o texto do post ${emIdioma(o.idioma)}, no tamanho e na forma da categoria acima, sem excesso de hashtags.`,
     `4. ${dir}/post.md: troque \`titulo\` por um título curto do post e escreva no corpo, em 2 ou 3 linhas ${isEn() ? 'em inglês' : 'em português'}, de onde saíram o screenshot e os assets e se é preciso segurar o post (e até quando).`,
     `5. Rode \`planos divulgar --pronto ${o.pasta}\`: o post vai para "Para postar" no app, com commit e aviso no Mac.`,
     '',

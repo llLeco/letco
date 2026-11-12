@@ -20,7 +20,7 @@ import { DISCORD_FILE, KEYCHAIN_SERVICE, parseCanais } from '../src/lib/discord'
 import { hojeMarkdown, semanaMarkdown } from '../src/lib/digest'
 import { parseTarefas } from '../src/lib/tarefas'
 import { placeEntrada } from '../src/lib/migrate'
-import { CAMPANHAS_FILE, DIVULGAR_STATE_DIR, gerarPostPrompt, parseCampanhas, prMarkdown, ruido, type Campanha, type PrInfo } from '../src/lib/divulgar'
+import { CAMPANHAS_FILE, CATEGORIA_SUFIXO, CATEGORIAS, categoriaDe, DIVULGAR_STATE_DIR, gerarPostPrompt, parseCampanhas, prMarkdown, type Campanha, type Categoria, type PrInfo } from '../src/lib/divulgar'
 import { METRICAS, parseResumo, RESUMOS_DIR, resumoPrompt, type Metricas } from '../src/lib/resumo'
 import { addDays, format } from 'date-fns'
 import { dump } from 'js-yaml'
@@ -221,7 +221,7 @@ function save(plan: Plan, raw: string, msg: string) {
 
 // ---------- argumentos ----------
 
-const VALUE_FLAGS = new Set(['contexto', 'prioridade', 'prazo', 'objetivo', 'canal', 'dias', 'pronto', 'descartar', 'motivo', 'campanha', 'data', 'nome'])
+const VALUE_FLAGS = new Set(['contexto', 'prioridade', 'prazo', 'objetivo', 'canal', 'dias', 'pronto', 'descartar', 'refazer', 'motivo', 'campanha', 'data', 'nome'])
 const argv = process.argv.slice(2)
 const positional = argv.filter((a, i) => !a.startsWith('--') && !(argv[i - 1]?.startsWith('--') && VALUE_FLAGS.has(argv[i - 1].slice(2))))
 function flag(name: string): string | undefined {
@@ -703,11 +703,11 @@ function campaignPosts(slug: string) {
   const dir = join(ROOT, 'divulgacao', slug)
   if (!existsSync(dir)) return []
   return readdirSync(dir)
-    .filter((f) => /^\d{4}-\d{2}-\d{2}-[0-9a-f]{7,}$/.test(f) && existsSync(join(dir, f, 'post.md')))
+    .filter((f) => /^\d{4}-\d{2}-\d{2}-[0-9a-f]{7,}(-[a-z]+)?$/.test(f) && existsSync(join(dir, f, 'post.md')))
     .sort()
     .map((f) => {
       const { data } = splitFrontmatter(readFileSync(join(dir, f, 'post.md'), 'utf8'))
-      return { rel: `divulgacao/${slug}/${f}`, folder: f, status: String(data.status ?? ''), sha: String(data.sha ?? f.slice(11)) }
+      return { rel: `divulgacao/${slug}/${f}`, folder: f, status: String(data.status ?? ''), sha: String(data.sha ?? f.slice(11, 18)), categoria: (CATEGORIAS.find((k) => k === data.categoria) ?? 'novidade') as Categoria }
     })
 }
 
@@ -799,21 +799,58 @@ function verificarCampanha(c: Campanha, today: string) {
       return Array.isArray(data.prs) ? data.prs.map(Number) : []
     }),
   )
-  const fora = prs.map((p) => [p, feitos.has(p.number) ? t('já tem post', 'already has a post') : ruido(p)] as const).filter(([, r]) => r)
-  const bons = prs.filter((p) => !feitos.has(p.number) && !ruido(p))
-  const foraTxt = fora.length ? ` ${t('Fora', 'Left out')}: ${fora.map(([p, r]) => `#${p.number} (${r})`).join(', ')}.` : ''
-  if (!bons.length) {
+  const novos = prs.filter((p) => !feitos.has(p.number))
+  const jaTem = prs.length - novos.length
+  const foraTxt = jaTem ? ` ${t(`${jaTem} já tinham post.`, `${jaTem} already had a post.`)}` : ''
+  if (!novos.length) {
     saveState()
-    return { linha: t(`${c.nome}: ${cmp.total_commits} commits novos, ${prs.length} PRs, nenhum vira post.`, `${c.nome}: ${cmp.total_commits} new commits, ${prs.length} PRs, none becomes a post.`) + foraTxt }
+    return { linha: t(`${c.nome}: ${cmp.total_commits} commits novos, ${prs.length} PRs, todos já com post.`, `${c.nome}: ${cmp.total_commits} new commits, ${prs.length} PRs, all already have a post.`) }
   }
-  const rel = `divulgacao/${c.slug}/${today}-${head.sha.slice(0, 7)}`
-  if (!existsSync(join(ROOT, rel, 'post.md'))) {
-    write(`${rel}/pr.md`, prMarkdown(c, bons))
-    const fm = { titulo: `${c.nome}: ${bons.map((p) => `#${p.number}`).join(', ')}`, status: 'gerando', prs: bons.map((p) => p.number), sha: head.sha.slice(0, 7), repo: c.repo }
-    write(`${rel}/post.md`, `---\n${dump(fm, { lineWidth: -1 })}---\n\nCriado por \`planos divulgar --verificar\` em ${today}.\n`)
-  }
+  const rels = criarPosts(c, novos, `${today}-${head.sha.slice(0, 7)}`, head.sha.slice(0, 7), today)
   saveState()
-  return { linha: `${c.nome}: ${bons.length} ${t('PR(s) para post', 'PR(s) for a post')} (${bons.map((p) => `#${p.number}`).join(', ')}) → ${rel}.${foraTxt}` }
+  return { linha: `${c.nome}: ${novos.length} ${t('PR(s) para post', 'PR(s) for a post')} → ${rels.join(', ')}.${foraTxt}` }
+}
+
+/** Todo PR vira post: um post por categoria (novidade, correções, manutenção), cada um na sua pasta, com status gerando. */
+function criarPosts(c: Campanha, prs: PrInfo[], base: string, sha: string, today: string, refazer = false) {
+  const rels: string[] = []
+  for (const cat of CATEGORIAS) {
+    const grupo = prs.filter((p) => categoriaDe(p) === cat)
+    if (!grupo.length) continue
+    const rel = `divulgacao/${c.slug}/${base}${CATEGORIA_SUFIXO[cat]}`
+    const postFile = join(ROOT, rel, 'post.md')
+    if (existsSync(postFile)) {
+      const st = String(splitFrontmatter(readFileSync(postFile, 'utf8')).data.status ?? '')
+      // só refaz por cima de um post descartado ou ainda não montado
+      if (!refazer || (st !== 'descartado' && st !== 'gerando')) continue
+    }
+    write(`${rel}/pr.md`, prMarkdown(c, grupo))
+    const rotulo = { novidade: t('novidades', 'new'), correcao: t('correções', 'fixes'), manutencao: t('manutenção', 'maintenance') }[cat]
+    const fm = { titulo: `${c.nome} · ${rotulo}: ${grupo.map((p) => `#${p.number}`).join(', ')}`, status: 'gerando', categoria: cat, prs: grupo.map((p) => p.number), sha, repo: c.repo }
+    write(`${rel}/post.md`, `---\n${dump(fm, { lineWidth: -1 })}---\n\nCriado por \`planos divulgar --verificar\` em ${today}.\n`)
+    rels.push(`${rel} (${grupo.length} ${rotulo})`)
+  }
+  return rels
+}
+
+/** Refaz um post descartado com a regra atual (todo PR vira post, por categoria): busca os PRs dele de novo e recria as pastas. */
+function refazerPost(rel: string, today: string) {
+  const { data } = splitFrontmatter(readFileSync(join(ROOT, rel, 'post.md'), 'utf8'))
+  const c = parseCampanhas(readOpt(join(ROOT, CAMPANHAS_FILE))).find((x) => rel.startsWith(`divulgacao/${x.slug}/`))
+  if (!c) die(t(`Não achei a campanha de ${rel}.`, `Couldn't find the campaign for ${rel}.`))
+  if (data.status !== 'descartado' && data.status !== 'gerando') die(t(`${rel} está ${data.status}: só refaço post descartado ou ainda não montado.`, `${rel} is ${data.status}: only a discarded or unbuilt post can be redone.`))
+  const nums = Array.isArray(data.prs) ? data.prs.map(Number).filter(Boolean) : []
+  if (!nums.length) die(t(`${rel} não tem PRs no cabeçalho.`, `${rel} has no PRs in its header.`))
+  const prs: PrInfo[] = nums.map((n) => {
+    const p = gh<{ number: number; title: string; body: string | null; html_url: string; merged_at: string | null; user: { login: string } }>(`repos/${c.repo}/pulls/${n}`)
+    const files = gh<{ filename: string }[]>(`repos/${c.repo}/pulls/${n}/files?per_page=100`).map((f) => f.filename)
+    return { number: p.number, title: p.title, body: p.body ?? '', url: p.html_url, mergedAt: p.merged_at ?? today, author: p.user.login, files }
+  })
+  const folder = rel.split('/').pop()!
+  const base = folder.replace(/-[a-z]+$/, '')
+  // a pasta original deixa de valer pelos PRs: quem vale são as pastas por categoria (uma delas pode ser a própria)
+  write(`${rel}/post.md`, `---\n${dump({ ...data, status: 'descartado', prs: [], refeito_em: today }, { lineWidth: -1 })}---\n\nRefeito em ${today} com um post por categoria.\n`)
+  return criarPosts(c, prs, base, String(data.sha ?? base.slice(11)), today, true)
 }
 
 /** Divulgação: confere a branch de cada campanha e cria os posts a montar; --pronto e --descartar fecham um post. */
@@ -835,6 +872,12 @@ function cmdDivulgar() {
     setPostStatus(rel, 'descartado', motivo && motivo !== 'true' ? `Descartado em ${today}: ${motivo}` : undefined)
     commit(`divulgacao: ${rel.slice(11)} descartado`)
     console.log(green('✓ ') + t(`${rel} descartado.`, `${rel} discarded.`))
+    return
+  }
+  if (flag('refazer')) {
+    const rels = refazerPost(postDir(flag('refazer')), today)
+    commit(`divulgacao: ${flag('refazer')} refeito por categoria`)
+    console.log(green('✓ ') + (rels.length ? rels.join('\n  ') : t('nada a refazer', 'nothing to redo')))
     return
   }
   if (!flag('verificar'))
@@ -862,7 +905,7 @@ function cmdDivulgar() {
     for (const p of posts.filter((x) => x.status === 'gerando')) {
       const anterior = posts.filter((x) => x.folder < p.folder && existsSync(join(ROOT, x.rel, 'template.html'))).pop()?.rel
       console.log(`\n=== ${p.rel.slice(11)} ===\n`)
-      console.log(gerarPostPrompt({ root: ROOT, c, pasta: p.rel.slice(11), today, anterior, idioma }))
+      console.log(gerarPostPrompt({ root: ROOT, c, pasta: p.rel.slice(11), today, anterior, idioma, categoria: p.categoria }))
       n++
     }
   }
