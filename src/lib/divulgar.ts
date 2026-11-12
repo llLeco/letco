@@ -68,7 +68,7 @@ export function ruido(pr: Pick<PrInfo, 'title' | 'files'>): string | null {
   return null
 }
 
-/** todo PR vira post; a categoria decide o tom e a forma: novidade (feat), correção (fix) ou manutenção (o resto) */
+/** novidade (feat) e correção (fix) viram post, cada uma com seu tom e forma; manutenção (o resto) fica de fora */
 export type Categoria = 'novidade' | 'correcao' | 'manutencao'
 export const CATEGORIAS: Categoria[] = ['novidade', 'correcao', 'manutencao']
 
@@ -133,7 +133,7 @@ export function gerarPostPrompt(o: { root: string; c: Campanha; pasta: string; t
     '',
     ...forma[cat],
     '',
-    '1. Este post cobre todos os PRs do pr.md, sem exceção: não descarte o post e não deixe PR de fora (PRs parecidos podem dividir uma linha). Regra de campanha que diga que algo "não vira post" não vale mais; as que dizem o que não mencionar continuam valendo.',
+    '1. Este post cobre todos os PRs do pr.md, sem exceção: não descarte o post e não deixe PR de fora (PRs parecidos podem dividir uma linha). As regras da campanha sobre o que não mencionar continuam valendo.',
     `2. Imagem com material real, seguindo ${tools}/README.md (primeira vez: \`npm install\` nessa pasta):`,
     `   - clone local: ${clone}. Atualize só com \`git fetch origin ${o.c.branch}\` e leia com \`git show origin/${o.c.branch}:<caminho>\`, sem trocar a branch nem mexer nos arquivos do clone. Se precisar rodar o app local, use um worktree temporário da origin/${o.c.branch} no seu diretório temporário e remova-o (\`git worktree remove\`) ao terminar.`,
     `   - em ${dir}/ref/: o logo e os ícones reais e, quando a categoria pede, o screenshot real da tela que o PR mudou.`,

@@ -807,16 +807,22 @@ function verificarCampanha(c: Campanha, today: string) {
     return { linha: t(`${c.nome}: ${cmp.total_commits} commits novos, ${prs.length} PRs, todos já com post.`, `${c.nome}: ${cmp.total_commits} new commits, ${prs.length} PRs, all already have a post.`) }
   }
   const rels = criarPosts(c, novos, `${today}-${head.sha.slice(0, 7)}`, head.sha.slice(0, 7), today)
+  const manut = novos.filter((p) => categoriaDe(p) === 'manutencao')
+  const manutTxt = manut.length ? ` ${t('Sem post (manutenção)', 'No post (maintenance)')}: ${manut.map((p) => `#${p.number}`).join(', ')}.` : ''
   saveState()
-  return { linha: `${c.nome}: ${novos.length} ${t('PR(s) para post', 'PR(s) for a post')} → ${rels.join(', ')}.${foraTxt}` }
+  if (!rels.length) return { linha: t(`${c.nome}: ${novos.length} PRs novos, só de manutenção.`, `${c.nome}: ${novos.length} new PRs, maintenance only.`) + manutTxt + foraTxt }
+  return { linha: `${c.nome}: ${novos.length - manut.length} ${t('PR(s) para post', 'PR(s) for a post')} → ${rels.join(', ')}.${manutTxt}${foraTxt}` }
 }
 
-/** Todo PR vira post: um post por categoria (novidade, correções, manutenção), cada um na sua pasta, com status gerando. */
+/**
+ * Um post por categoria, cada um na sua pasta, com status gerando: novidades e correções.
+ * Manutenção (ci, docs, dependências, refactor, merges entre branches) não vira post: não diz nada a quem usa.
+ */
 function criarPosts(c: Campanha, prs: PrInfo[], base: string, sha: string, today: string, refazer = false) {
   const rels: string[] = []
   for (const cat of CATEGORIAS) {
     const grupo = prs.filter((p) => categoriaDe(p) === cat)
-    if (!grupo.length) continue
+    if (!grupo.length || cat === 'manutencao') continue
     const rel = `divulgacao/${c.slug}/${base}${CATEGORIA_SUFIXO[cat]}`
     const postFile = join(ROOT, rel, 'post.md')
     if (existsSync(postFile)) {
