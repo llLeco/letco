@@ -6,7 +6,8 @@ import { t } from './i18n'
  * Posts de divulgação: ~/planos/divulgacao/<campanha>/<AAAA-MM-DD>-<sha7>/
  *   imagem.png  · a arte
  *   legenda.md  · o texto, com uma seção por idioma (## EN, ## PT)
- *   post.md     · cabeçalho com titulo, status (gerando | pendente | postado | descartado), postado_em, prs, sha
+ *   post.md     · cabeçalho com titulo, status (gerando | pendente | postado | descartado), postado_em, prs, sha,
+ *                 ambiente (develop | producao) e em_producao (data em que a novidade chegou à branch de produção)
  * O usuário copia imagem e texto no app e posta com a própria conta.
  */
 export interface PostRaw {
@@ -25,6 +26,13 @@ export interface Post extends PostRaw {
   titulo: string
   status: PostStatus
   postadoEm?: string
+  /** onde a novidade está: só na branch acompanhada (develop) ou já na de produção; vazio se ainda não foi conferido */
+  ambiente?: 'develop' | 'producao'
+  /** data em que a verificação viu a novidade na branch de produção */
+  emProducao?: string
+  /** nomes das branches, para o texto do selo */
+  branch?: string
+  producaoBranch?: string
   date?: string
   textos: { lang: string; text: string }[]
 }
@@ -45,6 +53,10 @@ export function parsePost(raw: PostRaw): Post {
     titulo: String(data.titulo ?? raw.folder),
     status,
     postadoEm: data.postado_em ? String(data.postado_em) : undefined,
+    ambiente: data.ambiente === 'producao' || data.ambiente === 'develop' ? data.ambiente : undefined,
+    emProducao: data.em_producao ? String(data.em_producao).slice(0, 10) : undefined,
+    branch: data.branch ? String(data.branch) : undefined,
+    producaoBranch: data.producao_branch ? String(data.producao_branch) : undefined,
     date: raw.folder.match(/^\d{4}-\d{2}-\d{2}/)?.[0],
     textos,
   }

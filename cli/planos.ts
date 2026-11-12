@@ -711,6 +711,48 @@ function campaignPosts(slug: string) {
     })
 }
 
+/**
+ * Confere, para cada post ainda não marcado como em produção, se a novidade já chegou à branch de produção
+ * da campanha, e grava `ambiente` (develop | producao) e `em_producao` no post.md.
+ * Chegou quando o commit do post está contido na branch de produção, ou quando todos os PRs do post
+ * aparecem nas mensagens de commit dela (merge com squash ou rebase troca os commits, mas mantém o "#123").
+ */
+function atualizarAmbiente(c: Campanha, today: string) {
+  let producao = 0
+  let develop = 0
+  let msgs: string | null | undefined
+  for (const p of campaignPosts(c.slug)) {
+    const file = join(ROOT, p.rel, 'post.md')
+    const { data, body } = splitFrontmatter(readFileSync(file, 'utf8'))
+    if (data.status === 'descartado') continue
+    if (data.ambiente === 'producao') {
+      producao++
+      continue
+    }
+    let chegou = c.branch === c.producao
+    if (!chegou) {
+      const cmp = ghSoft<{ ahead_by: number }>([`repos/${c.repo}/compare/${c.producao}...${p.sha}`])
+      chegou = !!cmp && cmp.ahead_by === 0
+    }
+    const prs = Array.isArray(data.prs) ? data.prs.map(Number).filter(Boolean) : []
+    if (!chegou && prs.length) {
+      if (msgs === undefined) {
+        const desde = addDays(new Date(), -45).toISOString()
+        msgs = ghSoft<{ commit: { message: string } }[]>([`repos/${c.repo}/commits?sha=${c.producao}&since=${desde}&per_page=100`])?.map((x) => x.commit.message).join('\n') ?? null
+      }
+      chegou = !!msgs && prs.every((n) => new RegExp(`#${n}\\b`).test(msgs!))
+    }
+    const ambiente = chegou ? 'producao' : 'develop'
+    if (chegou) producao++
+    else develop++
+    if (data.ambiente === ambiente && data.branch === c.branch && data.producao_branch === c.producao) continue
+    const next: Record<string, unknown> = { ...data, ambiente, branch: c.branch, producao_branch: c.producao }
+    if (chegou) next.em_producao = today
+    write(`${p.rel}/post.md`, `---\n${dump(next, { lineWidth: -1 })}---\n${body.startsWith('\n') ? body : `\n${body}`}`)
+  }
+  return t(`${c.nome}: ${producao} em produção (${c.producao}), ${develop} só na ${c.branch}.`, `${c.nome}: ${producao} in production (${c.producao}), ${develop} only on ${c.branch}.`)
+}
+
 function verificarCampanha(c: Campanha, today: string) {
   const stateFile = join(ROOT, DIVULGAR_STATE_DIR, `${c.slug}.json`)
   const state = existsSync(stateFile) ? (JSON.parse(readFileSync(stateFile, 'utf8')) as { sha?: string; branch?: string }) : {}
@@ -808,6 +850,7 @@ function cmdDivulgar() {
   if (!campanhas.length) die(t(`Nenhuma campanha em ${join(ROOT, CAMPANHAS_FILE)}.`, `No campaigns in ${join(ROOT, CAMPANHAS_FILE)}.`))
   const s = load()
   for (const c of campanhas) console.log(verificarCampanha(c, today).linha)
+  for (const c of campanhas) console.log(atualizarAmbiente(c, today))
   commit('divulgacao: verificação das campanhas')
 
   // tudo que está em "gerando" (o que acabou de entrar e o que ficou de uma rodada que não terminou)

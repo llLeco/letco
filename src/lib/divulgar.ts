@@ -17,6 +17,8 @@ export interface Campanha {
   nome: string
   repo: string
   branch: string
+  /** branch que está no ar para os usuários (padrão master); os posts dizem se a novidade já chegou nela */
+  producao: string
   clone?: string
   plano?: string
   regras: string
@@ -38,6 +40,7 @@ export function parseCampanhas(yaml: string | null): Campanha[] {
       nome: String(v.nome ?? slug),
       repo: String(v.repo),
       branch: String(v.branch ?? 'master'),
+      producao: String(v.producao ?? 'master'),
       clone: v.clone ? String(v.clone) : undefined,
       plano: v.plano ? String(v.plano) : undefined,
       regras: String(v.regras ?? '').trim(),

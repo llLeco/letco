@@ -48,3 +48,13 @@ describe('buildDocs', () => {
     expect(filterDocs(docs, 'nada disso', 'todos', name)).toEqual([])
   })
 })
+
+describe('posts', () => {
+  it('lê do post.md se a novidade está só na develop ou já em produção', async () => {
+    const { parsePost } = await import('./posts')
+    const raw = (fm: string) => ({ dir: 'd', campaign: 'c', folder: '2026-11-12-abc1234', image: null, legenda: null, mtime: 0, post: `---\ntitulo: X\nstatus: pendente\n${fm}---\n` })
+    expect(parsePost(raw('ambiente: develop\nbranch: develop\nproducao_branch: master\n'))).toMatchObject({ ambiente: 'develop', branch: 'develop', producaoBranch: 'master' })
+    expect(parsePost(raw("ambiente: producao\nem_producao: '2026-11-12'\n"))).toMatchObject({ ambiente: 'producao', emProducao: '2026-11-12' })
+    expect(parsePost(raw('')).ambiente).toBeUndefined()
+  })
+})

@@ -205,7 +205,7 @@ export async function mockApi(cmd: string, args: Record<string, unknown> = {}): 
           folder: '2026-10-17-5f55fcc',
           image: 'divulgacao/acme-carteira/2026-10-17-5f55fcc/imagem.png',
           legenda: files.get('divulgacao/acme-carteira/2026-10-17-5f55fcc/legenda.md') ?? '## EN\n\nA fresh connection experience for Acme Wallet 💜\n\n• One wallet list replaces the multi-step wizard.\n\n## PT\n\nUm novo jeito de conectar na Acme Wallet 💜\n\n• Uma lista única substitui o assistente de várias etapas.',
-          post: files.get('divulgacao/acme-carteira/2026-10-17-5f55fcc/post.md') ?? null,
+          post: files.get('divulgacao/acme-carteira/2026-10-17-5f55fcc/post.md') ?? '---\ntitulo: A fresh connection experience\nstatus: pendente\nambiente: develop\nbranch: develop\nproducao_branch: master\n---\n',
           mtime: Date.now(),
         },
       ]

@@ -30,6 +30,30 @@ function useImage(rel: string | null) {
 
 const LANG_KEY = 'planos.divulgacao.lang'
 
+/** onde a novidade do post está: já no ar (branch de produção) ou só na branch acompanhada */
+function Ambiente({ post, small }: { post: Post; small?: boolean }) {
+  if (!post.ambiente) return null
+  const prod = post.ambiente === 'producao'
+  const dev = post.branch ?? 'develop'
+  return (
+    <span
+      title={
+        prod
+          ? t(`A verificação viu esta novidade na ${post.producaoBranch ?? 'master'} em ${dayLabel(post.emProducao) ?? ''}`, `The check saw this change on ${post.producaoBranch ?? 'master'} on ${dayLabel(post.emProducao) ?? ''}`)
+          : t(`Está na ${dev}, mas ainda não chegou à ${post.producaoBranch ?? 'master'}: os usuários ainda não veem`, `It is on ${dev} but hasn't reached ${post.producaoBranch ?? 'master'} yet: users can't see it`)
+      }
+      className={cn(
+        'inline-flex flex-none items-center gap-1.5 rounded-full font-medium',
+        small ? 'px-2 py-px text-[11px]' : 'px-2.5 py-0.5 text-[12px]',
+        prod ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/14 text-amber-700 dark:text-amber-400',
+      )}
+    >
+      <span className={cn('h-1.5 w-1.5 rounded-full', prod ? 'bg-emerald-500' : 'bg-amber-500')} />
+      {prod ? t('Em produção', 'In production') : t(`Só na ${dev}`, `Only on ${dev}`)}
+    </span>
+  )
+}
+
 function PostCard({ post, onStatus, nomes }: { post: Post; onStatus: (p: Post, s: PostStatus) => void; nomes?: Record<string, string> }) {
   const src = useImage(post.image)
   const [lang, setLang] = useState(() => {
@@ -69,7 +93,10 @@ function PostCard({ post, onStatus, nomes }: { post: Post; onStatus: (p: Post, s
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-semibold leading-snug">{post.titulo}</div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[14px] font-semibold leading-snug">{post.titulo}</span>
+              <Ambiente post={post} />
+            </div>
             <div className="mt-0.5 text-[12px] text-[var(--text-3)]">
               {campaignLabel(post.campaign, nomes)}
               {post.date && ` · ${dayLabel(post.date)}`}
@@ -156,6 +183,7 @@ function DoneRow({ post, onStatus }: { post: Post; onStatus: (p: Post, s: PostSt
     <div className="flex h-10 items-center gap-3 rounded-[8px] px-2 hover:bg-[var(--bg-hover)]">
       {post.status === 'postado' ? <Check size={14} className="flex-none text-emerald-600 dark:text-emerald-400" /> : <X size={14} className="flex-none text-[var(--text-3)]" />}
       <span className="min-w-0 flex-1 truncate text-[13px]">{post.titulo}</span>
+      {post.status === 'postado' && <Ambiente post={post} small />}
       <span className="flex-none text-[12px] text-[var(--text-3)]">
         {post.status === 'postado' ? t(`postado ${dayLabel(post.postadoEm) ?? ''}`, `posted ${dayLabel(post.postadoEm) ?? ''}`) : t('descartado', 'discarded')}
       </span>
