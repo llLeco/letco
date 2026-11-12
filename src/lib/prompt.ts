@@ -110,6 +110,7 @@ Contexto: no sistema ${deNome()}, quem implementa e revisa é IA (Claude, Codex)
    - Aprovar / Acesso / Arquivar: a liberação, a credencial ou o plano obsoleto.
    - Todo item tem de ser algo que ${nome()} consegue concluir sozinho, de uma vez, e que deixa claro quando está feito. Item vago ("ver o plano", "acompanhar", "alinhar") não entra.
    - Um assunto, um item: se o mesmo PR, bug ou decisão aparece em mais de um plano, o item fica só no plano principal daquele assunto (o que tem as fases dele). Nos outros, cite em "Como está" ("depende do #807, acompanhado no plano <id>") e não repita o item.
+   - Não reescreva por reescrever: um item que continua valendo fica com o texto exatamente igual (é o texto que liga o item à tarefa do dia; mudar uma palavra cria uma pendência repetida). Se o fato mudou e o texto precisa mudar, troque também a linha da tarefa em tarefas/<hoje>.md pelo mesmo texto novo.
    - Não invente pendência para preencher: se desde o último Conferido nada mudou e nada novo depende ${deNome()}, mantenha os itens que continuam valendo como estão (mesmo texto) e não crie outros.
    - No máximo 3 itens, do mais importante para o menos. Se nada depende ${deNome()}, escreva \`**Precisa de você:** nada agora — <o que está andando sozinho>\`.
    - Mantenha os itens que ${nome()} já marcou com [x] só se ainda fizerem sentido; caso contrário, remova.
