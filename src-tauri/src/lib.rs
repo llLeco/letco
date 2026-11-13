@@ -15,7 +15,13 @@ use tauri::{AppHandle, Emitter, Manager};
 
 mod console;
 
-const SKILL_MD: &str = include_str!("../../skill/planejamento/SKILL.md");
+const SKILL_MD: &str = include_str!("../../plugin/skills/planejamento/SKILL.md");
+/// as skills que o app instala em ~/.claude/skills: o padrão dos planos e os dois atalhos (/letco e /letco-atualizar)
+const SKILLS: [(&str, &str); 3] = [
+    ("planejamento", SKILL_MD),
+    ("letco", include_str!("../../plugin/skills/letco/SKILL.md")),
+    ("letco-atualizar", include_str!("../../plugin/skills/letco-atualizar/SKILL.md")),
+];
 const AGENTS_BEGIN: &str = "<!-- planos:planejamento:inicio -->";
 const AGENTS_END: &str = "<!-- planos:planejamento:fim -->";
 
@@ -413,7 +419,9 @@ fn environment() -> Env {
         has_node: which("node").is_some() || nvm_node().is_some(),
         has_gh: which("gh").is_some(),
         skill_installed: home().join(".claude/skills/planejamento/SKILL.md").is_file(),
-        skill_outdated: read_opt(&home().join(".claude/skills/planejamento/SKILL.md")).is_some_and(|s| s.trim() != SKILL_MD.trim()),
+        // instalada, mas com alguma skill faltando ou diferente da que vem nesta versão
+        skill_outdated: home().join(".claude/skills/planejamento/SKILL.md").is_file()
+            && SKILLS.iter().any(|(n, md)| read_opt(&home().join(format!(".claude/skills/{n}/SKILL.md"))).map(|s| s.trim() != md.trim()).unwrap_or(true)),
         cli_installed: home().join(".local/bin/planos").is_file(),
     }
 }
@@ -681,7 +689,11 @@ fn path_exists(path: String) -> bool {
 fn install_skill() -> Result<String, String> {
     let skill = home().join(".claude/skills/planejamento");
     fs::create_dir_all(&skill).map_err(|e| e.to_string())?;
-    fs::write(skill.join("SKILL.md"), SKILL_MD).map_err(|e| e.to_string())?;
+    for (name, md) in SKILLS {
+        let dir = home().join(".claude/skills").join(name);
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        fs::write(dir.join("SKILL.md"), md).map_err(|e| e.to_string())?;
+    }
 
     let codex = home().join(".codex");
     fs::create_dir_all(&codex).map_err(|e| e.to_string())?;

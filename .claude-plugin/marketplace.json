@@ -1,0 +1,12 @@
+{
+  "name": "letco",
+  "owner": { "name": "llLeco", "url": "https://github.com/llLeco" },
+  "description": "Skills for Letco, the Mac app that keeps your plans in Markdown.",
+  "plugins": [
+    {
+      "name": "letco",
+      "source": "./plugin",
+      "description": "Record what a Claude session did in your Letco plans (/letco), update the Letco app (/letco-atualizar) and write plans in the Letco format (planejamento)."
+    }
+  ]
+}

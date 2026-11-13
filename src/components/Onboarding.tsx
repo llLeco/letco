@@ -410,7 +410,7 @@ function PassoFerramentas() {
         </li>
         <li className="flex items-center gap-2.5">
           <span className="flex w-4 justify-center">{estado(skill)}</span>
-          <span>{t('Skill planejamento no Claude Code (~/.claude/skills) e no Codex', 'planejamento skill in Claude Code (~/.claude/skills) and Codex')}</span>
+          <span>{t('Skills no Claude Code (~/.claude/skills): planejamento, /letco e /letco-atualizar; e o padrão no Codex', 'Skills in Claude Code (~/.claude/skills): planejamento, /letco and /letco-atualizar; and the format in Codex')}</span>
         </li>
       </ul>
       <Button variant={cli === 'ok' && skill === 'ok' ? 'secondary' : 'primary'} disabled={busy} onClick={instalar}>

@@ -77,6 +77,21 @@ Files keep a few fixed Portuguese markers (`## Para você`, `Conferido`, `# Tare
 git pull && pnpm install && pnpm release && cp -R src-tauri/target/release/bundle/macos/Letco.app /Applications/
 ```
 
+## Claude shortcuts
+
+The app installs three skills into `~/.claude/skills` (setup step 3, or Settings). In any Claude Code session, including the Code tab of the Claude desktop app:
+
+- `/letco` records what the current session did in your plans: it finds the plan by repo, branch or PR, writes the Log, marks phases only with evidence and rewrites "For you". If the work has no plan and deserves one, it creates it.
+- `/letco-atualizar` updates the app itself: pulls the repo, runs the checks, builds, installs into `/Applications` and reopens it.
+- `planejamento` is the document format; Claude loads it on its own when you ask for a plan.
+
+The same skills ship as a Claude Code plugin, if you'd rather install them that way:
+
+```text
+/plugin marketplace add llLeco/letco
+/plugin install letco@letco
+```
+
 ## Stack
 
 - **Tauri 2** (Rust): a light native app (~10 MB), macOS vibrancy window, access to files, git and Terminal/Orca.
@@ -130,7 +145,7 @@ src/components/Onboarding.tsx  first run: profile, projects, command and skill, 
 src/lib/digest.ts    hoje.md and semana.md
 cli/planos.ts        the terminal command (shares the app's libs)
 src-tauri/src/lib.rs backend: files, git, watcher, Orca/Terminal, skill
-skill/planejamento   the global skill for the document format
+plugin/skills/       the skills the app installs (also a Claude Code plugin): planejamento, letco and letco-atualizar
 ```
 
 ## License

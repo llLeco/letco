@@ -1,0 +1,10 @@
+{
+  "name": "letco",
+  "version": "0.1.0",
+  "description": "Record what a Claude session did in your Letco plans (/letco), update the Letco app (/letco-atualizar) and write plans in the Letco format (planejamento).",
+  "author": { "name": "llLeco", "url": "https://github.com/llLeco" },
+  "homepage": "https://github.com/llLeco/letco",
+  "repository": "https://github.com/llLeco/letco",
+  "license": "MIT",
+  "keywords": ["planning", "markdown", "letco"]
+}

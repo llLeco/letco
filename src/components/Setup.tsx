@@ -183,7 +183,7 @@ export function SettingsView() {
           desc={
             skillOld
               ? t('A skill instalada é de uma versão anterior do app. Atualize para o Claude e o Codex escreverem planos no formato atual.', 'The installed skill is from an earlier version of the app. Update it so Claude and Codex write plans in the current format.')
-              : t('Instala o padrão de documentos no Claude (~/.claude/skills) e no AGENTS.md global do Codex, para todo plano novo nascer no formato certo.', "Installs the document format in Claude (~/.claude/skills) and in Codex's global AGENTS.md, so every new plan starts in the right format.")
+              : t('Instala no Claude (~/.claude/skills) o padrão de documentos e os atalhos /letco (registra a sessão nos planos) e /letco-atualizar (atualiza o app); e o padrão no AGENTS.md global do Codex.', "Installs in Claude (~/.claude/skills) the document format and the shortcuts /letco (records the session in your plans) and /letco-atualizar (updates the app); and the format in Codex's global AGENTS.md.")
           }
         >
           <Button
