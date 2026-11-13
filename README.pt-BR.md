@@ -83,12 +83,14 @@ O app instala três skills em `~/.claude/skills` (passo 3 da configuração, ou 
 - `/letco-atualizar` atualiza o próprio app: baixa o repositório, roda as verificações, compila, instala em `/Applications` e reabre.
 - `planejamento` é o padrão dos documentos; o Claude carrega sozinho quando você pede um plano.
 
-As mesmas skills também vêm como plugin do Claude Code, para quem preferir instalar assim:
+O **plugin do Letco** para o Claude Code traz as mesmas skills e uma faixa acima do campo de mensagem, em toda sessão: a contagem do dia ("3 para hoje · 2 feitas · 1 adiada") e três botões. **Registrar sessão** envia o pedido do `/letco`, **Lista do dia** abre um painel com a lista de hoje (lida de `~/planos/tarefas`, sem gastar um turno da IA) e **Atualizar app** deixa `/letco-atualizar` no campo para você enviar. O X esconde a faixa; `/letco-atalhos` mostra de novo. Os textos seguem o idioma do app.
 
 ```text
 /plugin marketplace add llLeco/letco
 /plugin install letco@letco
 ```
+
+Para pegar uma versão nova depois: `claude plugin marketplace update letco` e `claude plugin update letco@letco`. O código da faixa é `plugin/hooks/register.tsx`; `claude plugin test plugin` roda os testes dela.
 
 ## Stack
 

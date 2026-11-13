@@ -85,12 +85,14 @@ The app installs three skills into `~/.claude/skills` (setup step 3, or Settings
 - `/letco-atualizar` updates the app itself: pulls the repo, runs the checks, builds, installs into `/Applications` and reopens it.
 - `planejamento` is the document format; Claude loads it on its own when you ask for a plan.
 
-The same skills ship as a Claude Code plugin, if you'd rather install them that way:
+The **Letco plugin** for Claude Code brings the same skills plus a band above the prompt, in every session: today's count ("3 for today · 2 done · 1 postponed") and three buttons. **Record session** sends the `/letco` request, **Today** opens a pane with the daily list (read from `~/planos/tarefas`, no AI turn spent), and **Update app** puts `/letco-atualizar` in the composer for you to send. The close mark hides the band; `/letco-atalhos` brings it back. Labels follow your app language.
 
 ```text
 /plugin marketplace add llLeco/letco
 /plugin install letco@letco
 ```
+
+To get a new version later: `claude plugin marketplace update letco` and `claude plugin update letco@letco`. The band's code is `plugin/hooks/register.tsx`; `claude plugin test plugin` runs its tests.
 
 ## Stack
 
